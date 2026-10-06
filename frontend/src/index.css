@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+/*
+ * Design system do AI Help Desk (especificação §35).
+ * Os tokens abaixo são a ÚNICA fonte de cor da aplicação: nenhum .tsx usa hex,
+ * rgb() ou a paleta crua do Tailwind (ver skill frontend-design).
+ */
+@theme {
+  /* Superfícies e texto */
+  --color-background: #f8fafc;
+  --color-surface: #ffffff;
+  /* Fundo de hover/zebra sobre Surface (derivado de Border) */
+  --color-surface-hover: #f1f5f9;
+  --color-text: #0f172a;
+  --color-secondary: #64748b;
+  --color-border: #e2e8f0;
+
+  /* Ação primária */
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  /* Fundo claro para item selecionado e realces discretos */
+  --color-primary-soft: #eff6ff;
+
+  /* Estados. Success/Warning não têm contraste 4.5:1 sobre branco: usar em
+   * ponto, ícone ou borda; o texto acompanha --color-text (skill accessibility). */
+  --color-success: #16a34a;
+  --color-success-soft: #f0fdf4;
+  --color-warning: #d97706;
+  --color-warning-soft: #fffbeb;
+  --color-danger: #dc2626;
+  --color-danger-soft: #fef2f2;
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+}
+
+/*
+ * Escala tipográfica (utilitários do Tailwind, sem tamanhos inventados por tela):
+ *   título de página   text-2xl font-semibold
+ *   título de seção    text-lg  font-semibold
+ *   corpo              text-sm
+ *   legenda/metadado   text-xs  text-secondary
+ */
+@layer base {
+  html {
+    color-scheme: light;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--color-background);
+    color: var(--color-text);
+  }
+
+  /* Cor de seleção e marcação consistentes com a ação primária */
+  ::selection {
+    background-color: var(--color-primary-soft);
+  }
+}

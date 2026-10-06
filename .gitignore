@@ -1,0 +1,74 @@
+# -----------------------------------------------------------------------------
+# Variáveis de ambiente (segredos) — apenas o .env.example é versionado
+# -----------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+
+# -----------------------------------------------------------------------------
+# Python
+# -----------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+.coverage.*
+
+# Bancos locais (SQLite de desenvolvimento e testes)
+*.db
+*.sqlite3
+
+# Arquivos enviados pelos usuários em desenvolvimento local
+backend/uploads/
+
+# -----------------------------------------------------------------------------
+# Node / frontend
+# -----------------------------------------------------------------------------
+node_modules/
+dist/
+coverage/
+*.local
+*.tsbuildinfo
+
+# -----------------------------------------------------------------------------
+# Logs
+# -----------------------------------------------------------------------------
+/logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# -----------------------------------------------------------------------------
+# Sistema operacional
+# -----------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# -----------------------------------------------------------------------------
+# IDEs e editores
+# -----------------------------------------------------------------------------
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*.swo
+*~
+
+# -----------------------------------------------------------------------------
+# Claude Code (tudo relacionado ao Claude fica fora do versionamento)
+# -----------------------------------------------------------------------------
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+.mcp.json

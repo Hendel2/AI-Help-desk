@@ -1,0 +1,108 @@
+# Ambiente de desenvolvimento do AI Help Desk (Compose Specification).
+#
+# Uso:
+#   cp .env.example .env      # depois preencha JWT_SECRET, MYSQL_ROOT_PASSWORD e MYSQL_PASSWORD
+#   docker compose up --build
+#
+# Portas e nomes de variáveis seguem os contratos definidos no CLAUDE.md.
+# Segredos obrigatórios usam ${VAR:?mensagem}: o compose falha antes de subir
+# qualquer container se eles estiverem ausentes ou vazios no .env.
+
+name: ai-help-desk
+
+services:
+  mysql:
+    image: mysql:8.4
+    # Apenas as variáveis do MySQL são repassadas (os demais segredos do .env não entram aqui).
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?defina MYSQL_ROOT_PASSWORD no arquivo .env}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-helpdesk}
+      MYSQL_USER: ${MYSQL_USER:-helpdesk}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?defina MYSQL_PASSWORD no arquivo .env}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --default-time-zone=+00:00
+    ports:
+      # Exposto apenas em localhost: o banco nunca fica acessível pela rede.
+      # 3307 no host: a 3306 costuma estar ocupada por um MySQL/MariaDB local (XAMPP).
+      - "127.0.0.1:${MYSQL_HOST_PORT:-3307}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      # Conecta via TCP (127.0.0.1) para não considerar "saudável" o servidor
+      # temporário da inicialização, que roda sem rede.
+      test: ["CMD-SHELL", "MYSQL_PWD=$$MYSQL_ROOT_PASSWORD mysqladmin ping -h 127.0.0.1 -u root --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  vector-db:
+    # Imagem oficial do ChromaDB, com versão fixada (não usar "latest").
+    image: chromadb/chroma:1.5.9
+    environment:
+      # O servidor 1.x não envia telemetria de produto e só exporta OpenTelemetry
+      # se configurado; a variável mantém a telemetria anônima explicitamente desligada.
+      ANONYMIZED_TELEMETRY: "False"
+    ports:
+      # Porta 8000 do container exposta como 8001 no host, apenas em localhost.
+      - "127.0.0.1:8001:8000"
+    volumes:
+      # A imagem persiste os dados em /data (persist_path do /config.yaml da imagem).
+      - chroma-data:/data
+
+  backend:
+    build: ./backend
+    env_file: .env
+    # Valores abaixo têm precedência sobre o env_file e ajustam o backend à rede do compose.
+    environment:
+      DATABASE_URL: "mysql+pymysql://${MYSQL_USER:-helpdesk}:${MYSQL_PASSWORD:?defina MYSQL_PASSWORD no arquivo .env}@mysql:3306/${MYSQL_DATABASE:-helpdesk}?charset=utf8mb4"
+      VECTOR_DB_URL: http://vector-db:8000
+      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no arquivo .env (veja o .env.example)}
+      UPLOAD_DIR: /app/uploads
+    ports:
+      - "8000:8000"
+    volumes:
+      - backend-uploads:/app/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+      vector-db:
+        condition: service_started
+    healthcheck:
+      # Imagens slim não têm curl: a verificação usa a biblioteca padrão do Python.
+      test:
+        - CMD
+        - python
+        - -c
+        - "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=4).status == 200 else 1)"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      # Margem para o "alembic upgrade head" executado antes do uvicorn.
+      start_period: 30s
+
+  frontend:
+    build: ./frontend
+    # Sem env_file: segredos nunca chegam ao frontend; apenas variáveis VITE_* não sensíveis.
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-/api/v1}
+      VITE_PROXY_TARGET: http://backend:8000
+      # Bind mounts do Windows/macOS não propagam eventos de arquivo para o container:
+      # o watcher do Vite usa polling para o hot reload funcionar.
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "5173:5173"
+    volumes:
+      # Código-fonte montado para hot reload; node_modules fica no volume anônimo
+      # (instalado na imagem), sem ser sobrescrito pela pasta do host.
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+
+volumes:
+  mysql-data:
+  chroma-data:
+  backend-uploads:

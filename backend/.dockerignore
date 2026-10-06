@@ -1,0 +1,27 @@
+# Ambiente local e caches
+.venv/
+**/__pycache__/
+**/*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Bancos locais, segredos e arquivos enviados
+*.db
+*.sqlite
+*.sqlite3
+.env
+.env.*
+uploads/
+
+# Testes e artefatos (não vão para a imagem)
+tests/
+pytest-of-*/
+junit*.xml
+
+# Arquivos do próprio build
+Dockerfile
+.dockerignore

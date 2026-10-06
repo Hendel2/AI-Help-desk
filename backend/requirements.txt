@@ -1,0 +1,15 @@
+# Dependências de runtime do backend (FastAPI + SQLAlchemy + MySQL).
+fastapi>=0.140,<1
+uvicorn[standard]>=0.40,<1
+sqlalchemy>=2.0.40,<2.2
+alembic>=1.16,<2
+pydantic>=2.11,<3
+pydantic-settings>=2.10,<3
+pymysql>=1.1,<2
+# Necessário para o PyMySQL autenticar no MySQL 8 (caching_sha2_password).
+cryptography>=44,<52
+# Autenticação: hash de senha (Argon2id) e JWT.
+argon2-cffi>=23.1,<26
+pyjwt>=2.10,<3
+# Validação de e-mail usada por pydantic.EmailStr.
+email-validator>=2.2,<3
