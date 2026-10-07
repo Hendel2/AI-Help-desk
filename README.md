@@ -2,366 +2,339 @@
 
 **Sistema inteligente de gerenciamento e automação de suporte de TI.**
 
-Plataforma web multiempresa (SaaS) de Help Desk de TI com uma camada de Inteligência Artificial: chatbot de suporte, RAG sobre a base de conhecimento e AI Copilot para técnicos, integrados ao ciclo de atendimento.
+Plataforma SaaS multiempresa que une a operação completa de um Help Desk (chamados, SLA, histórico, base de conhecimento e indicadores) a uma camada de Inteligência Artificial integrada a todo o ciclo de atendimento: abertura, classificação, atendimento, consulta à base de conhecimento, resolução e análise.
 
-> [!IMPORTANT]
-> **Status: em desenvolvimento inicial.** A etapa em andamento é a **Fundação (etapas 01–03)**: estrutura do monorepo, modelos de dados com a migration inicial, backend base e scaffold do frontend.
-> Ainda **não** existem autenticação, gestão de chamados, telas de negócio nem recursos de IA (as tabelas já existem no banco, mas sem endpoints). Tudo o que aparece como *planejado* neste README ainda não está implementado.
+> **A IA sugere. O backend autoriza.** A inteligência artificial nunca controla permissões nem envia respostas sozinha: toda ação passa pelas regras de negócio e de segurança do sistema.
+
+## Destaques
+
+- **Multiempresa de verdade:** isolamento por empresa garantido na camada de dados e coberto por testes.
+- **IA com guarda-corpos:** RAG restrito à empresa, respostas com fontes, saídas do LLM validadas e nenhuma ação automática sem revisão humana.
+- **Regras de negócio no backend:** fluxo de status, SLA e permissões validados no servidor, não na interface.
+- **Interface de produto B2B:** design system próprio, responsiva (sidebar vira drawer no mobile) e acessível (teclado, foco visível, leitores de tela).
+- **Pronto para rodar:** um `docker compose up` sobe frontend, API, MySQL e banco vetorial, com dados de demonstração.
+
+## Início rápido
+
+```bash
+git clone https://github.com/Hendel2/AI-Help-desk.git
+cd AI-Help-desk
+cp .env.example .env          # defina JWT_SECRET, MYSQL_ROOT_PASSWORD e MYSQL_PASSWORD
+docker compose up -d --build
+docker compose exec backend python -m app.cli.seed_demo
+```
+
+Acesse http://localhost:5173 e entre com `admin@demo.helpdesk` / `demo12345` (outros perfis em [Dados de demonstração](#dados-de-demonstração)).
+
+### Roteiro sugerido para conhecer o sistema
+
+1. Entre como **usuário** e abra um chamado — a IA sugere categoria e prioridade.
+2. Entre como **técnico**, assuma o chamado e use o **AI Copilot** para resumir e sugerir uma solução.
+3. Responda, resolva e veja o **SLA** e o **histórico** sendo atualizados.
+4. Volte como usuário, feche e avalie o atendimento.
+5. Entre como **administrador** e acompanhe os indicadores no dashboard.
+6. Teste o **Assistente de TI**: faça uma pergunta, veja a resposta com fontes e peça para abrir um chamado.
 
 ## Sumário
 
-- [Descrição](#descrição)
 - [Problema resolvido](#problema-resolvido)
 - [Funcionalidades](#funcionalidades)
 - [Arquitetura](#arquitetura)
 - [Stack](#stack)
 - [Estrutura de pastas](#estrutura-de-pastas)
 - [Como executar](#como-executar)
+- [Dados de demonstração](#dados-de-demonstração)
 - [Variáveis de ambiente](#variáveis-de-ambiente)
 - [Testes](#testes)
 - [API](#api)
 - [IA e RAG](#ia-e-rag)
-- [Screenshots](#screenshots)
-- [Roadmap](#roadmap)
-- [Documentação](#documentação)
+- [Segurança](#segurança)
 - [Licença](#licença)
-
-## Descrição
-
-O AI Help Desk combina as funcionalidades de um Help Desk tradicional (chamados, SLA, histórico, comentários, anexos, notificações e base de conhecimento) com recursos de IA que ajudam na triagem, respondem dúvidas recorrentes e apoiam os técnicos no atendimento.
-
-A IA **não** substitui a estrutura do Help Desk. Ela é uma camada de inteligência sobre um sistema que continua responsável pela operação, pelas regras de negócio e pela segurança:
-
-> **A IA sugere. O backend autoriza.**
-
-O projeto é desenvolvido como portfólio com padrão profissional e foi pensado para poder evoluir para um produto SaaS. A especificação completa está em [docs/especificacao.md](docs/especificacao.md).
 
 ## Problema resolvido
 
-Equipes de suporte de TI costumam lidar com:
+Equipes de TI recebem um grande volume de solicitações repetitivas, perdem prazos por falta de visibilidade e dependem do conhecimento individual dos técnicos. O AI Help Desk resolve isso com:
 
-- solicitações chegando por e-mail, chat ou corredor, sem registro, prioridade ou responsável definido;
-- prazos de atendimento (SLA) acompanhados manualmente e descumpridos sem aviso;
-- as mesmas dúvidas simples (senha, VPN, impressora, e-mail) consumindo o tempo dos técnicos;
-- conhecimento interno espalhado e difícil de encontrar;
-- falta de histórico e de indicadores para avaliar o desempenho do suporte.
-
-A proposta do AI Help Desk é centralizar o atendimento em um fluxo rastreável (abertura → triagem → atendimento → resolução → avaliação), resolver dúvidas simples com um assistente que responde com base na documentação interna da empresa, citando as fontes, e encaminhar para atendimento humano o que exige intervenção. Para os técnicos, um copiloto resume chamados e sugere soluções, sempre sujeitas à revisão humana.
+- **Organização:** todo atendimento vira um chamado rastreável, com número amigável (`HD-000102`), responsável, prioridade, histórico e SLA.
+- **Prazos visíveis:** cada chamado mostra em tempo real se está no prazo, próximo do vencimento ou vencido.
+- **Autoatendimento:** o Assistente de TI resolve problemas simples com base na documentação interna da empresa e abre chamados quando não consegue.
+- **Produtividade do técnico:** o AI Copilot resume chamados, sugere soluções e redige respostas para revisão.
+- **Gestão:** dashboards e insights mostram volume, gargalos, cumprimento de SLA e satisfação.
 
 ## Funcionalidades
 
-### Disponível hoje: Fundação (etapas 01–03, em andamento)
+### Chamados
+- Abertura em etapas, com sugestão de categoria e prioridade pela IA.
+- Numeração sequencial por empresa (`HD-000001`).
+- Fluxo de status validado no backend: `Aberto → Em triagem → Atribuído → Em andamento → Aguardando usuário → Resolvido → Fechado`, com cancelamento e reabertura.
+- Atribuição a técnicos; quem inicia o atendimento assume o chamado.
+- Comentários públicos e **internos** (visíveis apenas para a equipe).
+- Anexos com validação de tamanho, extensão e tipo.
+- Histórico completo de alterações e avaliação do atendimento (1 a 5).
+- Listagem com busca, filtros e paginação.
 
-- Monorepo com `backend/` (FastAPI), `frontend/` (React + Vite) e `docker-compose.yml` com MySQL 8.4 e ChromaDB.
-- **Banco de dados:** modelos SQLAlchemy das 19 tabelas da especificação (empresas, perfis, usuários, departamentos, categorias, chamados e seus comentários, anexos, histórico e avaliações, políticas de SLA, notificações, auditoria, conversas, mensagens, base de conhecimento e registros de IA) e migration inicial do Alembic, compatível com MySQL 8.4 (Docker/produção) e SQLite (testes e dev local).
-- **Backend base:** configuração por variáveis de ambiente (com validação extra em produção), health check `GET /api/v1/health`, formato padronizado de erros, logs estruturados em JSON com request id (`X-Request-ID`), repositório base com escopo multiempresa obrigatório e documentação OpenAPI (Swagger).
-- **Frontend:** scaffold com React 19, TypeScript em modo `strict`, Vite, Tailwind CSS v4 e React Router. Uma página temporária de status consulta o health check da API e valida o fluxo completo de dados; também há uma página 404.
-- **Testes:** Pytest no backend (configuração, erros, health check, modelos, migration e repositórios) e Vitest no frontend.
-- **Skills do Claude Code:** as 10 skills do projeto em `.claude/skills/`.
+### SLA
+- Políticas por categoria e por prioridade (ex.: Crítica — resposta em 15 min, resolução em 2 h).
+- Prazos de resposta e de resolução calculados automaticamente.
+- Estados **No prazo**, **Próximo do vencimento** e **Vencido**, recalculados ao mudar categoria ou prioridade.
 
-### Planejado
+### Inteligência Artificial
+- **Assistente de TI:** chatbot que responde com base na base de conhecimento, cita as fontes e escala para um chamado quando necessário (`source=CHATBOT`).
+- **Classificação automática** de intenção, categoria e prioridade, sempre validada pelo backend.
+- **AI Copilot** para técnicos: resumir chamado, sugerir solução, encontrar artigos, gerar resposta e analisar histórico. A resposta é editável e nunca é enviada automaticamente.
+- **AI Insights** no dashboard administrativo.
+- Registro de todas as ações de IA e feedback dos usuários (👍/👎).
 
-| Área | Funcionalidades | Etapa |
-|------|-----------------|-------|
-| Autenticação e perfis | Login com JWT, refresh token, senhas com Argon2, perfis USER, TECHNICIAN e ADMIN, rotas protegidas | 04 |
-| Interface | Design system, layout com sidebar e topbar, dashboards por perfil | 05–07 |
-| Chamados | Abertura, listagem com filtros e busca, atribuição, status com transições válidas, prioridade, comentários internos e externos, anexos, avaliação do atendimento | 08 |
-| SLA | Políticas de SLA e acompanhamento de prazos | 09 |
-| Histórico | Linha do tempo de alterações de cada chamado | 10 |
-| Notificações | Avisos de eventos relevantes do chamado | 11 |
-| AI Service | Camada de abstração do provedor de LLM e classificação automática de chamados | 12 |
-| Chatbot | **Assistente de TI**: identifica a intenção, responde com a base de conhecimento e escala para um chamado quando necessário | 13 |
-| Base de conhecimento | Artigos, categorias, busca e upload de PDF, DOCX, TXT e MD | 14 |
-| RAG | Indexação em banco vetorial e respostas com fontes | 15 |
-| AI Copilot | Resumir chamado, sugerir solução, encontrar artigos, gerar resposta editável e analisar histórico | 16 |
-| Administração | Usuários, departamentos, categorias, SLA, configurações e auditoria | 17 |
-| Analytics | Métricas, gráficos de SLA e desempenho, insights de IA | 18 |
+### Base de conhecimento
+- Artigos por categoria, artigos populares e recentes.
+- Upload de PDF, DOCX, TXT e MD com extração, chunking, embeddings e indexação vetorial.
+- Avaliação de artigos ("Este artigo ajudou?").
 
-Transversal a todas as etapas: **isolamento multiempresa**. Toda entidade de dados empresariais tem `company_id` e o repositório base já exige esse filtro em todas as consultas. A partir da autenticação, cada requisição fica limitada à empresa do usuário autenticado, e o acesso a recursos de outra empresa responde `404`, para não revelar sua existência.
+### Gestão e administração
+- Dashboards específicos para usuário, técnico e administrador.
+- Gestão de usuários, departamentos, categorias, políticas de SLA e configurações de IA.
+- Notificações de novos chamados, atribuições, comentários, resoluções e alertas de SLA.
+- Trilha de auditoria de ações sensíveis.
+
+### Perfis de acesso
+
+| Perfil | Pode |
+|--------|------|
+| **Usuário** | Abrir e acompanhar os próprios chamados, comentar, anexar arquivos, avaliar o atendimento, usar o Assistente de TI e consultar a base de conhecimento |
+| **Técnico** | Ver os chamados da empresa, assumir, alterar status e prioridade, comentar internamente, resolver e usar o AI Copilot |
+| **Administrador** | Tudo do técnico, além de gerenciar usuários, categorias, SLA, base de conhecimento, configurações e auditoria |
 
 ## Arquitetura
 
-Visão geral (seção 94 da especificação):
-
 ```mermaid
 flowchart TD
-    FE["Frontend<br/>React + TypeScript"] --> API["REST API<br/>FastAPI · /api/v1"]
+    FE["Frontend<br/>React + TypeScript"] --> API["REST API<br/>FastAPI"]
     API --> SVC["Services<br/>regras de negócio"]
-    API --> AIS["AI Service"]
+    API --> AI["AI Service"]
     SVC --> REPO["Repositories"]
     REPO --> ORM["SQLAlchemy"]
-    ORM --> DB[("MySQL 8.4")]
-    AIS --> RAG["RAG"]
-    AIS --> LLM["LLM<br/>via interface de provedor"]
-    RAG --> VDB[("Vector DB<br/>ChromaDB")]
+    ORM --> DB[("MySQL")]
+    AI --> RAG["RAG"]
+    AI --> LLM["Provedor de LLM"]
+    RAG --> VDB[("ChromaDB")]
 ```
 
-O backend segue uma arquitetura em camadas. As rotas não contêm regras de negócio:
+O backend segue uma arquitetura em camadas — **Route → Schema → Service → Repository → SQLAlchemy** — e as regras de negócio nunca ficam nas rotas. A camada de IA é isolada atrás de interfaces, o que permite trocar o provedor de LLM ou o banco vetorial sem reescrever a aplicação.
 
-```mermaid
-flowchart LR
-    R["Route<br/>app/api/v1"] --> S["Schema<br/>app/schemas"] --> SV["Service<br/>app/services"] --> RP["Repository<br/>app/repositories"] --> M["SQLAlchemy<br/>app/models"] --> DB[("MySQL")]
-```
+**Multiempresa:** toda entidade de dados empresariais possui `company_id`, e os repositórios exigem esse filtro em todas as consultas. Um usuário nunca acessa dados de outra empresa; recursos de outra empresa respondem `404`, sem revelar sua existência.
 
-No frontend, o fluxo de dados é **Component → Hook → TanStack Query → Service → API**; componentes nunca chamam `fetch` diretamente.
+No frontend, os dados seguem o fluxo **Componente → Hook → TanStack Query → Service → API**, sem chamadas HTTP espalhadas pelos componentes.
 
 ### Serviços do Docker Compose
 
-| Serviço | Imagem / build | Porta (host → container) | Função |
-|---------|----------------|--------------------------|--------|
-| `frontend` | `./frontend` | `5173 → 5173` | Servidor de desenvolvimento do Vite com hot reload; encaminha `/api` para o backend |
-| `backend` | `./backend` | `8000 → 8000` | API FastAPI; aplica as migrations (`alembic upgrade head`) ao iniciar |
+| Serviço | Imagem | Porta (host → container) | Função |
+|---------|--------|--------------------------|--------|
+| `frontend` | `./frontend` | `5173 → 5173` | Interface web (Vite) |
+| `backend` | `./backend` | `8000 → 8000` | API FastAPI; aplica as migrations ao iniciar |
 | `mysql` | `mysql:8.4` | `127.0.0.1:3307 → 3306` | Banco relacional (utf8mb4, UTC) |
-| `vector-db` | `chromadb/chroma:1.5.9` | `127.0.0.1:8001 → 8000` | Banco vetorial do RAG: provisionado agora, utilizado a partir da etapa 15 |
-
-MySQL e ChromaDB ficam expostos apenas em `localhost`. Os dados persistem nos volumes nomeados `mysql-data`, `chroma-data` e `backend-uploads`.
+| `vector-db` | `chromadb/chroma` | `127.0.0.1:8001 → 8000` | Banco vetorial do RAG |
 
 ## Stack
 
 | Camada | Tecnologias |
 |--------|-------------|
-| Backend | Python 3.12+ (imagem Docker com 3.13), FastAPI, SQLAlchemy 2 (síncrono), Alembic, Pydantic v2, pydantic-settings, PyMySQL, Pytest, Ruff |
-| Frontend | React 19, TypeScript, Vite, Tailwind CSS v4, React Router, TanStack Query, React Hook Form, Zod, Lucide React, Vitest, Testing Library, ESLint |
-| Banco de dados | MySQL 8.4 (Docker/produção) e SQLite (testes e dev local) |
-| IA e RAG | ChromaDB como banco vetorial; provedor de LLM atrás de uma interface (definido na etapa 12) |
-| Infraestrutura | Docker e Docker Compose |
-| Planejado | JWT e Argon2 (etapa 04) |
+| Backend | Python, FastAPI, SQLAlchemy 2, Alembic, Pydantic, JWT, Argon2 |
+| Banco de dados | MySQL 8.4 |
+| Frontend | React 19, TypeScript, Vite, Tailwind CSS 4, React Router, TanStack Query, React Hook Form, Zod, Lucide |
+| IA e RAG | Camada de abstração de LLM, ChromaDB |
+| Qualidade | Pytest, Ruff, Vitest, Testing Library, ESLint (com regras de acessibilidade) |
+| Infraestrutura | Docker, Docker Compose |
 
 ## Estrutura de pastas
 
-```text
+```
 AI-help-desk/
-├── backend/                    # API FastAPI
+├── backend/
 │   ├── app/
-│   │   ├── api/v1/             # rotas versionadas (hoje: health)
-│   │   ├── core/               # configuração, banco, logs, middlewares, erros
-│   │   ├── models/             # modelos SQLAlchemy
-│   │   ├── schemas/            # schemas Pydantic
-│   │   ├── repositories/       # acesso a dados (dados empresariais sempre filtrados por company_id)
-│   │   ├── services/           # regras de negócio
-│   │   └── main.py             # create_app() e app
-│   ├── alembic/                # migrations
-│   ├── tests/                  # testes Pytest
-│   ├── Dockerfile
-│   └── docker-entrypoint.sh    # aplica as migrations e inicia o uvicorn
-├── frontend/                   # React + Vite
-│   ├── src/
-│   │   ├── hooks/              # hooks (TanStack Query)
-│   │   ├── pages/              # páginas
-│   │   ├── routes/             # rotas (React Router)
-│   │   ├── services/           # serviços e cliente HTTP (services/api/client.ts)
-│   │   ├── test/               # setup e utilitários de teste
-│   │   └── types/              # tipos compartilhados
-│   └── Dockerfile
+│   │   ├── api/v1/          # rotas por recurso (auth, tickets, chat, knowledge, ai, dashboard...)
+│   │   ├── core/            # configuração, banco, segurança, logs, erros
+│   │   ├── models/          # modelos SQLAlchemy
+│   │   ├── schemas/         # schemas Pydantic
+│   │   ├── repositories/    # acesso a dados com escopo de empresa
+│   │   ├── services/        # regras de negócio, SLA e camada de IA
+│   │   └── cli/             # comandos utilitários (seed de demonstração)
+│   ├── alembic/             # migrations
+│   └── tests/
+├── frontend/
+│   └── src/
+│       ├── components/      # biblioteca de componentes (ui/ = primitivos)
+│       ├── features/        # módulos por domínio (auth, tickets, chat...)
+│       ├── layouts/         # layout principal, sidebar e topbar
+│       ├── pages/           # telas
+│       ├── services/        # cliente HTTP e TanStack Query
+│       ├── hooks/
+│       └── utils/
 ├── docs/
-│   └── especificacao.md        # especificação completa
-├── .claude/skills/             # skills do projeto para o Claude Code
 ├── docker-compose.yml
-├── .env.example                # modelo de configuração (o .env real nunca é versionado)
-├── CLAUDE.md                   # convenções e contratos de desenvolvimento
-└── README.md
+└── .env.example
 ```
 
 ## Como executar
 
 ### Opção 1: Docker Compose (recomendado)
 
-Pré-requisito: Docker com Docker Compose v2 ou superior (comando `docker compose`).
-
 ```bash
-cp .env.example .env              # PowerShell: Copy-Item .env.example .env
+cp .env.example .env
+# edite o .env e defina JWT_SECRET, MYSQL_ROOT_PASSWORD e MYSQL_PASSWORD
+docker compose up -d --build
 ```
 
-Edite o `.env` e preencha **`JWT_SECRET`**, **`MYSQL_ROOT_PASSWORD`** e **`MYSQL_PASSWORD`**, gerando um valor diferente para cada um:
+| Endereço | Serviço |
+|----------|---------|
+| http://localhost:5173 | Aplicação web |
+| http://localhost:8000/api/docs | Documentação interativa da API (Swagger) |
+| http://localhost:8000/api/v1/health | Health check |
+
+Para gerar um `JWT_SECRET` seguro:
 
 ```bash
 python -c "import secrets; print(secrets.token_urlsafe(48))"
 ```
 
-O compose se recusa a subir enquanto algum desses valores estiver vazio. Depois, suba o ambiente:
-
-```bash
-docker compose up --build
-```
-
-| Endereço | O que é |
-|----------|---------|
-| http://localhost:5173 | Frontend |
-| http://localhost:8000/api/v1/health | Health check da API |
-| http://localhost:8000/api/docs | Documentação interativa (Swagger) |
-| http://localhost:8001 | ChromaDB (somente na máquina local) |
-| `localhost:3307` | MySQL do Docker (somente na máquina local; 3306 fica livre para o XAMPP) |
-
-Observações:
-
-- O backend só inicia depois que o MySQL passa no health check e aplica as migrations automaticamente.
-- O frontend tem hot reload: o código de `frontend/` é montado no container. Depois de alterar dependências (`package.json`), recrie o volume de `node_modules` com `docker compose up --build -V frontend`.
-- O código do backend é copiado para a imagem; depois de alterá-lo, rode `docker compose up --build backend`.
-- `docker compose down` para os containers e mantém os dados. `docker compose down -v` **apaga** os volumes (banco, vetores e uploads).
-
 ### Opção 2: localmente, sem Docker
 
-Pré-requisitos: Python 3.12+ e Node.js 22 (22.22.2+) ou 24 (24.15+), conforme o campo `engines` de `frontend/package.json`.
+Requisitos: Python 3.12+, Node.js 20.19+ e um MySQL/MariaDB (ou SQLite para testes rápidos).
 
-Copie o `.env.example` para `.env` na raiz (opcional: sem ele, o backend usa os valores padrão de desenvolvimento).
-
-**Backend**: sem MySQL, o backend usa **SQLite** por padrão (`DATABASE_URL=sqlite:///./helpdesk_dev.db`, arquivo criado em `backend/`):
+**Backend**
 
 ```bash
 cd backend
 python -m venv .venv
-.venv/Scripts/python -m pip install -r requirements-dev.txt   # Windows (Linux/macOS: .venv/bin/python)
-.venv/Scripts/python -m alembic upgrade head
-.venv/Scripts/python -m uvicorn app.main:app --reload
+source .venv/bin/activate        # Windows: .venv\Scripts\activatectivate
+pip install -r requirements-dev.txt
+alembic upgrade head
+uvicorn app.main:app --reload
 ```
 
-A API fica em http://localhost:8000 (Swagger em http://localhost:8000/api/docs).
-
-**Frontend**, em outro terminal:
+**Frontend**
 
 ```bash
 cd frontend
 npm install
-npm run dev        # http://localhost:5173
+npm run dev
 ```
 
-O servidor de desenvolvimento do Vite encaminha `/api` para `VITE_PROXY_TARGET` (padrão `http://localhost:8000`).
+O servidor do Vite encaminha `/api` para o backend (`VITE_PROXY_TARGET`, padrão `http://localhost:8000`).
+
+## Dados de demonstração
+
+Para popular o banco com uma empresa de exemplo (usuários, categorias, políticas de SLA e chamados dos últimos 30 dias):
+
+```bash
+# com Docker
+docker compose exec backend python -m app.cli.seed_demo
+
+# localmente (com o ambiente virtual ativado)
+cd backend
+python -m app.cli.seed_demo
+```
+
+| E-mail | Perfil | Senha |
+|--------|--------|-------|
+| `admin@demo.helpdesk` | Administrador | `demo12345` |
+| `tecnico@demo.helpdesk` | Técnico | `demo12345` |
+| `usuario@demo.helpdesk` | Usuário | `demo12345` |
+
+O comando é idempotente e não roda em produção.
 
 ## Variáveis de ambiente
 
-Todas ficam no `.env` da raiz (modelo comentado em [.env.example](.env.example)). O `.env` real **nunca** é versionado.
+| Variável | Usada por | Descrição |
+|----------|-----------|-----------|
+| `ENVIRONMENT` | backend | `development`, `test` ou `production` |
+| `DATABASE_URL` | backend | URL do banco (sobrescrita automaticamente no Docker) |
+| `JWT_SECRET` | backend | Segredo dos tokens; obrigatório e com 32+ caracteres em produção |
+| `CORS_ORIGINS` | backend | Origens permitidas, separadas por vírgula |
+| `LOG_LEVEL` | backend | Nível dos logs estruturados (JSON) |
+| `AI_PROVIDER` / `AI_API_KEY` / `AI_MODEL` | backend | Provedor e modelo de LLM |
+| `VECTOR_DB_URL` | backend | Endereço do ChromaDB |
+| `UPLOAD_DIR` / `MAX_UPLOAD_SIZE_MB` | backend | Armazenamento e limite de anexos |
+| `MYSQL_ROOT_PASSWORD` / `MYSQL_PASSWORD` | Docker | Senhas do MySQL |
+| `MYSQL_DATABASE` / `MYSQL_USER` / `MYSQL_HOST_PORT` | Docker | Banco, usuário e porta no host |
+| `VITE_API_URL` / `VITE_PROXY_TARGET` | frontend | Base da API e destino do proxy em desenvolvimento |
 
-| Variável | Usada por | Padrão / exemplo | Descrição |
-|----------|-----------|------------------|-----------|
-| `ENVIRONMENT` | backend | `development` | `development`, `test` ou `production` |
-| `DATABASE_URL` | backend | `sqlite:///./helpdesk_dev.db` | URL do SQLAlchemy. No Docker, é montada pelo compose a partir das variáveis `MYSQL_*` |
-| `JWT_SECRET` | backend | *(vazio)* | Segredo dos tokens JWT. Obrigatório no Docker; em produção, 32+ caracteres |
-| `CORS_ORIGINS` | backend | `http://localhost:5173` | Origens permitidas, separadas por vírgula |
-| `LOG_LEVEL` | backend | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR` ou `CRITICAL` |
-| `AI_PROVIDER` | backend | `none` | Provedor de LLM; permanece `none` até a etapa 12 |
-| `AI_API_KEY` | backend | *(vazio)* | Chave do provedor de IA (segredo, somente backend) |
-| `AI_MODEL` | backend | *(vazio)* | Modelo do provedor de IA |
-| `VECTOR_DB_URL` | backend | `http://localhost:8001` | URL do ChromaDB. No Docker: `http://vector-db:8000` |
-| `UPLOAD_DIR` | backend | `backend/uploads/` | Pasta dos anexos. No Docker: `/app/uploads` (volume) |
-| `MAX_UPLOAD_SIZE_MB` | backend | `10` | Tamanho máximo de upload, em MB |
-| `MYSQL_ROOT_PASSWORD` | mysql | *(vazio)* | Senha do root do MySQL. Obrigatória no Docker |
-| `MYSQL_DATABASE` | mysql, backend | `helpdesk` | Nome do banco |
-| `MYSQL_USER` | mysql, backend | `helpdesk` | Usuário da aplicação (não pode ser `root`) |
-| `MYSQL_PASSWORD` | mysql, backend | *(vazio)* | Senha do usuário da aplicação. Obrigatória no Docker |
-| `VITE_API_URL` | frontend | `/api/v1` | Base da API usada pelo frontend |
-| `VITE_PROXY_TARGET` | frontend (Vite) | `http://localhost:8000` | Destino do proxy `/api`. No Docker: `http://backend:8000` |
-
-> [!WARNING]
-> Variáveis `VITE_*` são embutidas no bundle e ficam visíveis no navegador. Segredos (`JWT_SECRET`, `AI_API_KEY`, senhas) existem apenas no backend.
+Nenhum segredo é enviado ao frontend. O arquivo `.env` nunca é versionado; use o `.env.example` como referência.
 
 ## Testes
 
-**Backend** (Pytest; os testes usam SQLite e não precisam de MySQL):
-
 ```bash
+# backend (com o ambiente virtual ativado)
 cd backend
-.venv/Scripts/python -m pytest
-.venv/Scripts/python -m ruff check .
-```
+pytest
+ruff check .
 
-**Frontend** (Vitest):
-
-```bash
+# frontend
 cd frontend
 npm test
 npm run lint
 npm run typecheck
-npm run build
 ```
+
+A suíte cobre os cenários críticos da plataforma, entre eles:
+
+- usuário de uma empresa não acessa chamados de outra;
+- usuário comum não executa ações de técnico ou administrador;
+- transições de status inválidas são recusadas;
+- SLA calculado corretamente (no prazo, alerta e vencido);
+- comentários internos ocultos do solicitante;
+- chamado criado pelo chatbot recebe `source=CHATBOT`;
+- tokens adulterados, expirados ou de outra empresa são rejeitados.
 
 ## API
 
-Disponível hoje:
+Documentação interativa em `/api/docs`. Todas as rotas usam o prefixo `/api/v1`.
 
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| `GET` | `/api/v1/health` | Health check da API |
-| `GET` | `/api/docs` | Documentação interativa (Swagger UI) |
-| `GET` | `/api/openapi.json` | Esquema OpenAPI |
+| Recurso | Endpoints principais |
+|---------|----------------------|
+| Autenticação | `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh`, `GET /auth/me` |
+| Chamados | `GET/POST /tickets`, `GET/PUT /tickets/{id}`, `POST /tickets/{id}/assign`, `/status`, `/resolve`, `/close`, `GET/POST /tickets/{id}/comments`, `GET /tickets/{id}/history` |
+| Categorias | `GET /categories` |
+| Usuários | `GET/POST /users`, `GET/PUT/DELETE /users/{id}` |
+| Chat | `GET/POST /chat/conversations`, `POST /chat/conversations/{id}/messages` |
+| Base de conhecimento | `GET/POST /knowledge`, `GET/PUT/DELETE /knowledge/{id}`, `POST /knowledge/upload`, `POST /knowledge/{id}/index` |
+| IA | `POST /ai/classify`, `/ai/summarize`, `/ai/suggest-solution`, `/ai/generate-response` |
+| Dashboard | `GET /dashboard/metrics`, `/dashboard/tickets`, `/dashboard/sla`, `/dashboard/ai` |
+| Sistema | `GET /health` |
 
-A documentação interativa e o esquema OpenAPI ficam desabilitados com `ENVIRONMENT=production`.
+Erros seguem um formato único:
 
-Contratos já definidos para todos os endpoints:
+```json
+{ "error": { "code": "TICKET_NOT_FOUND", "message": "Chamado não encontrado.", "details": null } }
+```
 
-- Prefixo `/api/v1`.
-- Erros padronizados: `{"error": {"code": "STRING_CODE", "message": "texto", "details": <opcional>}}`.
-- Paginação: `{"items": [...], "total": int, "page": int, "page_size": int, "pages": int}`.
-
-Os endpoints planejados (autenticação, usuários, chamados, chat, base de conhecimento, IA e dashboard) estão listados na [seção 32 da especificação](docs/especificacao.md#32-api-rest).
+Listagens são paginadas: `{ "items": [], "total": 0, "page": 1, "page_size": 20, "pages": 0 }`.
 
 ## IA e RAG
 
-> **Nada desta seção está implementado ainda.** A camada de IA começa na etapa 12. Até lá, `AI_PROVIDER=none` e o container do ChromaDB é apenas provisionado.
-
-Arquitetura planejada:
-
-```mermaid
-flowchart TD
-    IN["Chat / Chamado"] --> AIS["AI Service"]
-    AIS --> CLS["Classificador de intenção"]
-    CLS --> RAG["RAG Service"]
-    RAG --> VDB[("Vector DB<br/>ChromaDB")]
-    VDB --> CTX["Conhecimento relevante"]
-    CTX --> LLM["LLM<br/>via interface de provedor"]
-    LLM --> VAL["Resposta validada pelo backend"]
-    VAL --> FE["Frontend"]
+```
+Pergunta → Embedding → Busca vetorial (filtrada por empresa) → Trechos relevantes → LLM → Resposta validada com fontes
 ```
 
-- **Provedor desacoplado:** o LLM fica atrás de uma interface (`app/services/ai/provider.py`), permitindo trocar de provedor sem reescrever a aplicação.
-- **Classificação:** a IA sugere intenção, categoria e prioridade em JSON estruturado; o backend valida o resultado e nunca confia cegamente nele.
-- **Pipeline de RAG:** upload (PDF, DOCX, TXT, MD) → extração → normalização → chunking → embeddings → banco vetorial. As respostas priorizam a documentação interna da empresa e apresentam as fontes.
-- **Assistente de TI:** resolve dúvidas simples e, quando o problema não é resolvido, escala e cria um chamado (com `source=CHATBOT`).
-- **AI Copilot:** a resposta gerada é sempre editável e nunca é enviada automaticamente; o técnico revisa e confirma.
-- **Rastreabilidade:** ações de IA registradas em `ai_actions` e avaliações das respostas em `ai_feedback`.
+- O RAG consulta apenas a base de conhecimento da empresa do usuário.
+- As respostas do assistente indicam as fontes utilizadas e não inventam procedimentos internos.
+- Toda saída estruturada do LLM (ex.: classificação) é validada pelo backend antes de ser usada.
+- A IA nunca solicita senhas ou tokens, não altera permissões e não executa ações críticas sem validação.
+- Ações de IA são registradas com modelo, tokens, latência e resultado.
 
-Regras de segurança da IA: ela não solicita senhas ou tokens, não expõe chaves, não acessa dados de outra empresa, não altera permissões, não revela instruções internas e não executa ações críticas sem validação.
+## Segurança
 
-> **A IA sugere. O backend autoriza.**
+- Senhas com Argon2id; tokens JWT de acesso (curto) e renovação, com verificação de tipo.
+- Autorização por perfil e isolamento multiempresa validados no backend.
+- Mensagens de login genéricas, sem enumeração de contas.
+- Validação de entrada com Pydantic, sem eco de dados sensíveis nos erros.
+- Logs estruturados com request id, sem senhas, tokens ou chaves.
+- Auditoria de login, criação de usuários e alterações em chamados.
+- Documentação da API desabilitada em produção.
 
-## Screenshots
+## Autor
 
-Em breve. As capturas de tela serão adicionadas quando as primeiras telas da aplicação estiverem implementadas.
-
-## Roadmap
-
-Ordem de implementação (seção 96 da especificação). Cada etapa deixa o projeto em estado funcional.
-
-- [ ] 01. Estrutura do projeto *(em andamento)*
-- [ ] 02. Banco de dados *(em andamento)*
-- [ ] 03. Backend base *(em andamento)*
-- [ ] 04. Autenticação
-- [ ] 05. Design System
-- [ ] 06. Layout
-- [ ] 07. Dashboard
-- [ ] 08. Tickets
-- [ ] 09. SLA
-- [ ] 10. Histórico
-- [ ] 11. Notificações
-- [ ] 12. AI Service
-- [ ] 13. Chatbot
-- [ ] 14. Knowledge Base
-- [ ] 15. RAG
-- [ ] 16. AI Copilot
-- [ ] 17. Administração
-- [ ] 18. Analytics
-- [ ] 19. Segurança
-- [ ] 20. Testes
-- [ ] 21. Responsividade
-- [ ] 22. Acessibilidade
-- [ ] 23. Docker
-- [ ] 24. README
-- [ ] 25. Revisão final
-
-## Documentação
-
-- [docs/especificacao.md](docs/especificacao.md): especificação funcional e técnica completa.
-- [CLAUDE.md](CLAUDE.md): convenções, decisões técnicas e contratos compartilhados (portas, variáveis, formatos da API) usados no desenvolvimento com o Claude Code.
+Desenvolvido por **Hendel** — [github.com/Hendel2](https://github.com/Hendel2).
 
 ## Licença
 
-A definir. Nenhuma licença foi escolhida até o momento.
+Distribuído sob a licença MIT.
