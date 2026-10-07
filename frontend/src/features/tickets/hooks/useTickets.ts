@@ -10,6 +10,7 @@ export const ticketKeys = {
   detail: (id: number) => [...ticketKeys.all, 'detail', id] as const,
   comments: (id: number) => [...ticketKeys.all, 'detail', id, 'comments'] as const,
   history: (id: number) => [...ticketKeys.all, 'detail', id, 'history'] as const,
+  attachments: (id: number) => [...ticketKeys.all, 'detail', id, 'attachments'] as const,
   categories: ['categories'] as const,
 }
 
@@ -116,6 +117,48 @@ export function useAddComment(id: number) {
       void queryClient.invalidateQueries({ queryKey: ticketKeys.history(id) })
       // A primeira resposta da equipe muda o SLA de resposta.
       void queryClient.invalidateQueries({ queryKey: ticketKeys.detail(id), exact: true })
+    },
+  })
+}
+
+export function useTicketAttachments(id: number) {
+  return useQuery({
+    queryKey: ticketKeys.attachments(id),
+    queryFn: ({ signal }) => ticketsService.listAttachments(id, signal),
+    enabled: Number.isInteger(id) && id > 0,
+  })
+}
+
+export function useUploadAttachment(id: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (file: File) => ticketsService.uploadAttachment(id, file),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ticketKeys.attachments(id) })
+    },
+  })
+}
+
+/**
+ * Envia vários anexos para um chamado (usado logo após a abertura). Não
+ * interrompe no primeiro erro: devolve os arquivos que falharam.
+ */
+export function useAttachFiles() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ ticketId, files }: { ticketId: number; files: File[] }) => {
+      const failed: File[] = []
+      for (const file of files) {
+        try {
+          await ticketsService.uploadAttachment(ticketId, file)
+        } catch {
+          failed.push(file)
+        }
+      }
+      return failed
+    },
+    onSuccess: (_failed, { ticketId }) => {
+      void queryClient.invalidateQueries({ queryKey: ticketKeys.attachments(ticketId) })
     },
   })
 }

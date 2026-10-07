@@ -2,6 +2,7 @@
 
 from collections.abc import Callable, Iterator
 from itertools import count
+from pathlib import Path
 
 import pytest
 from fastapi import FastAPI
@@ -25,9 +26,12 @@ TEST_JWT_SECRET = "test-jwt-secret-with-at-least-32-characters"
 
 
 @pytest.fixture
-def settings() -> Settings:
+def settings(tmp_path: Path) -> Settings:
     return Settings(
         _env_file=None,
+        UPLOAD_DIR=tmp_path / "uploads",
+        MAX_UPLOAD_SIZE_MB=1,
+        SLA_MONITOR_INTERVAL_SECONDS=0,
         ENVIRONMENT="test",
         DATABASE_URL="sqlite://",
         JWT_SECRET=TEST_JWT_SECRET,

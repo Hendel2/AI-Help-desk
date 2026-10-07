@@ -19,6 +19,11 @@ export default defineConfig(({ mode }) => {
   return {
     envDir,
     plugins: [react(), tailwindcss()],
+    // Pré-empacota dependências usadas só em telas carregadas sob demanda: sem
+    // isso o Vite as descobre no meio da sessão e recarrega a página inteira.
+    optimizeDeps: {
+      include: ['react-hook-form', 'zod', '@hookform/resolvers/zod'],
+    },
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url)),

@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 
 import { Button } from './Button'
@@ -78,5 +79,33 @@ describe('Modal', () => {
 
     await user.click(screen.getByRole('button', { name: 'Confirmar' }))
     expect(onClose).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('Modal com formulário', () => {
+  function FormModal() {
+    const [value, setValue] = useState('')
+    // `onClose` novo a cada render, como acontece em componentes reais.
+    return (
+      <Modal isOpen onClose={() => setValue('')} title="Resolver chamado">
+        <label>
+          Solução
+          <input value={value} onChange={(event) => setValue(event.target.value)} />
+        </label>
+        <button type="button">Confirmar</button>
+      </Modal>
+    )
+  }
+
+  it('não rouba o foco enquanto o usuário digita (regressão)', async () => {
+    const user = userEvent.setup()
+    render(<FormModal />)
+
+    const input = screen.getByLabelText('Solução')
+    await user.click(input)
+    await user.type(input, 'Credenciais renovadas.')
+
+    expect(input).toHaveValue('Credenciais renovadas.')
+    expect(input).toHaveFocus()
   })
 })

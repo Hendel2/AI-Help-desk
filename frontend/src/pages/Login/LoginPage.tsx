@@ -24,7 +24,7 @@ export function LoginPage() {
   const { login, status } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const redirectTo = (location.state as { from?: string } | null)?.from ?? '/perfil'
+  const redirectTo = (location.state as { from?: string } | null)?.from ?? '/'
 
   const {
     register,

@@ -7,6 +7,7 @@ import { cx, FOCUS_RING } from '@/components/ui/styles'
 import { ROLE_LABELS } from '@/features/auth/roleLabels'
 import type { CurrentUser } from '@/features/auth/types'
 import { useAuth } from '@/features/auth/useAuth'
+import { NotificationBell } from '@/features/notifications/components/NotificationBell'
 
 interface TopbarProps {
   user: CurrentUser
@@ -14,10 +15,7 @@ interface TopbarProps {
   onOpenMenu: () => void
 }
 
-/**
- * Barra superior: acesso à navegação no mobile, identidade do produto e usuário.
- * Busca global (§38) e notificações (§22) entram com as etapas 08 e 11.
- */
+/** Barra superior (§38): navegação no mobile, notificações e usuário. */
 export function Topbar({ user, onOpenMenu }: TopbarProps) {
   const { logout } = useAuth()
   const navigate = useNavigate()
@@ -44,6 +42,7 @@ export function Topbar({ user, onOpenMenu }: TopbarProps) {
       <span className="font-semibold text-text lg:hidden">AI Help Desk</span>
 
       <div className="ml-auto flex items-center gap-3">
+        <NotificationBell />
         <div className="flex items-center gap-2.5">
           <Avatar name={user.name} src={user.avatar} size="sm" />
           <span className="hidden flex-col leading-tight sm:flex">

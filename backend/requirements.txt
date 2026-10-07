@@ -13,3 +13,7 @@ argon2-cffi>=23.1,<26
 pyjwt>=2.10,<3
 # Validação de e-mail usada por pydantic.EmailStr.
 email-validator>=2.2,<3
+# Upload de anexos (multipart/form-data no FastAPI).
+python-multipart>=0.0.20,<1
+# Camada de IA: SDK oficial da Anthropic (Claude), atrás de app/services/ai/provider.py.
+anthropic>=1.11,<2

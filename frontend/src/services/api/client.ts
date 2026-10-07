@@ -17,11 +17,16 @@ export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE'
 
 export interface RequestOptions {
   method?: HttpMethod
-  /** Corpo da requisição; serializado como JSON quando informado. */
+  /**
+   * Corpo da requisição: `FormData` é enviado como multipart (upload);
+   * qualquer outro valor é serializado como JSON.
+   */
   body?: unknown
   headers?: HeadersInit
   /** Permite cancelar a requisição (ex.: o `signal` recebido do TanStack Query). */
   signal?: AbortSignal
+  /** `blob` para downloads de arquivo; o padrão é JSON. */
+  responseType?: 'json' | 'blob'
 }
 
 /** Opções dos helpers: o método vem do helper e o corpo, de um parâmetro próprio. */
@@ -53,14 +58,16 @@ export function buildApiUrl(path: string): string {
 }
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, headers, signal } = options
+  const { method = 'GET', body, headers, signal, responseType = 'json' } = options
+  // FormData: o navegador define o Content-Type com o boundary do multipart.
+  const isForm = body instanceof FormData
 
   let response: Response
   try {
     response = await fetch(buildApiUrl(path), {
       method,
-      headers: buildHeaders(headers, body !== undefined),
-      body: body === undefined ? undefined : JSON.stringify(body),
+      headers: buildHeaders(headers, body !== undefined && !isForm),
+      body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
       signal,
     })
   } catch (error) {
@@ -83,6 +90,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   }
 
   try {
+    if (responseType === 'blob') return (await response.blob()) as T
     return (await readJson(response)) as T
   } catch (error) {
     if (isAbortError(error, signal)) throw error

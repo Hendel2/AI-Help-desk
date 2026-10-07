@@ -136,3 +136,12 @@ class TicketHistoryRead(ORMModel):
     new_value: str | None
     created_at: datetime
     user: UserSummary | None
+
+
+class TicketAttachmentRead(ORMModel):
+    id: int
+    file_name: str
+    file_type: str
+    file_size: int
+    created_at: datetime
+    uploader: UserSummary

@@ -57,3 +57,11 @@ export function getErrorMessage(error: unknown, fallback: string = DEFAULT_ERROR
   }
   return fallback
 }
+
+/**
+ * O backend recusou a sessão (token inválido/expirado ou conta desativada)?
+ * Cancelamentos, quedas de rede e erros 5xx NÃO encerram a sessão.
+ */
+export function isSessionRejected(error: unknown): boolean {
+  return isApiError(error) && (error.status === 401 || error.status === 403)
+}

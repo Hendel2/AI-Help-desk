@@ -247,6 +247,7 @@ def _create_tickets(
     created = 0
 
     # Mais chamados recentes; alguns abertos, vários resolvidos/fechados.
+    # (minutos desde a abertura, status)
     plan: list[tuple[int, TicketStatus]] = []
     for _ in range(38):
         days_ago = rng.choice([0, 0, 1, 1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 18, 21, 25, 29])
@@ -277,10 +278,12 @@ def _create_tickets(
                     TicketStatus.CANCELLED,
                 ]
             )
-        plan.append((days_ago, status))
-    plan.sort(key=lambda item: -item[0])  # numeração cresce com o tempo
+        minutes_ago = days_ago * 1440 + rng.randint(0, 8) * 60 + rng.randint(0, 59)
+        plan.append((minutes_ago, status))
+    # Numeração em ordem cronológica de abertura (HD-000001 é o mais antigo).
+    plan.sort(key=lambda item: -item[0])
 
-    for sequence, (days_ago, status) in enumerate(plan, start=1):
+    for sequence, (minutes_ago, status) in enumerate(plan, start=1):
         category_name, title, description = rng.choice(SAMPLE_TICKETS)
         category = categories[category_name]
         priority = rng.choice(
@@ -291,9 +294,7 @@ def _create_tickets(
                 else TicketPriority.HIGH
             ]
         )
-        opened_at = now - timedelta(
-            days=days_ago, hours=rng.randint(0, 8), minutes=rng.randint(0, 59)
-        )
+        opened_at = now - timedelta(minutes=minutes_ago)
         policy = sla.resolve_policy(category, priority, policies)
         response_deadline, resolution_deadline = sla.compute_deadlines(policy, opened_at)
         requester = rng.choice(users.requesters)

@@ -537,6 +537,35 @@ class TestComments:
         assert _error(response)["code"] == "TICKET_CLOSED"
 
 
+class TestHistoryPrivacy:
+    def test_internal_comments_do_not_appear_in_the_requester_history(
+        self,
+        client: TestClient,
+        db_session: Session,
+        requester: User,
+        technician: User,
+        make_ticket: Callable[..., Ticket],
+        auth_headers: Callable[[User], dict[str, str]],
+    ) -> None:
+        ticket = make_ticket(requester)
+        db_session.commit()
+        client.post(
+            f"/api/v1/tickets/{ticket.id}/comments",
+            json={"content": "Suspeita de credencial vazada.", "is_internal": True},
+            headers=auth_headers(technician),
+        )
+
+        as_requester = client.get(
+            f"/api/v1/tickets/{ticket.id}/history", headers=auth_headers(requester)
+        ).json()
+        as_staff = client.get(
+            f"/api/v1/tickets/{ticket.id}/history", headers=auth_headers(technician)
+        ).json()
+
+        assert [entry["action"] for entry in as_requester] == ["CREATED"]
+        assert [entry["action"] for entry in as_staff] == ["CREATED", "COMMENTED"]
+
+
 class TestHistory:
     def test_records_the_whole_lifecycle(
         self,

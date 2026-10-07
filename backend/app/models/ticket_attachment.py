@@ -7,6 +7,7 @@ from app.models.base import Base, CreatedAtMixin
 
 if TYPE_CHECKING:
     from app.models.ticket import Ticket
+    from app.models.user import User
 
 
 class TicketAttachment(CreatedAtMixin, Base):
@@ -27,3 +28,4 @@ class TicketAttachment(CreatedAtMixin, Base):
     file_size: Mapped[int] = mapped_column(BigInteger)
 
     ticket: Mapped["Ticket"] = relationship(back_populates="attachments")
+    uploader: Mapped["User"] = relationship()

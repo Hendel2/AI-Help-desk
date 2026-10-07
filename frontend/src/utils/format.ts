@@ -46,3 +46,14 @@ export function formatDuration(totalSeconds: number): string {
   if (days > 0) return `${days}d ${hours}h`
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
 }
+
+/** Tempo médio legível: "45min", "4h 20min", "2d 3h". */
+export function formatMinutes(totalMinutes: number): string {
+  const minutes = Math.round(totalMinutes)
+  if (minutes < 60) return `${minutes}min`
+  const days = Math.floor(minutes / 1440)
+  const hours = Math.floor((minutes % 1440) / 60)
+  if (days > 0) return hours ? `${days}d ${hours}h` : `${days}d`
+  const rest = minutes % 60
+  return rest ? `${hours}h ${rest}min` : `${hours}h`
+}

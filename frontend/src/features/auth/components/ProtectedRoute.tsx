@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router'
 
+import { ErrorState } from '@/components/ErrorState'
+
 import { useAuth } from '../useAuth'
 import type { RoleName } from '../types'
 
@@ -15,8 +17,18 @@ interface ProtectedRouteProps {
  * A autorização real acontece no backend em cada requisição.
  */
 export function ProtectedRoute({ children, roles }: ProtectedRouteProps) {
-  const { status, user } = useAuth()
+  const { status, user, retry } = useAuth()
   const location = useLocation()
+
+  if (status === 'error') {
+    return (
+      <ErrorState
+        title="Não foi possível verificar sua sessão."
+        description="Verifique sua conexão. Você continua conectado."
+        onRetry={retry}
+      />
+    )
+  }
 
   if (status === 'loading') {
     return (

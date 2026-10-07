@@ -1,11 +1,18 @@
-import { Navigate, createBrowserRouter } from 'react-router'
+import { createBrowserRouter } from 'react-router'
 
 import { ProtectedRoute } from '@/features/auth/components/ProtectedRoute'
 import { AppLayout } from '@/layouts/AppLayout'
 import { LoginPage } from '@/pages/Login/LoginPage'
 import { NotFoundPage } from '@/pages/NotFound/NotFoundPage'
-import { ProfilePage } from '@/pages/Profile/ProfilePage'
 import { SystemStatusPage } from '@/pages/SystemStatus/SystemStatusPage'
+
+import {
+  DashboardPage,
+  NewTicketPage,
+  ProfilePage,
+  TicketDetailsPage,
+  TicketsPage,
+} from './lazyPages'
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -18,8 +25,26 @@ export const router = createBrowserRouter([
       </ProtectedRoute>
     ),
     children: [
-      // O dashboard chega na etapa 07 do roadmap; até lá a home é o perfil.
-      { index: true, element: <Navigate to="/perfil" replace /> },
+      { index: true, element: <DashboardPage /> },
+      {
+        path: 'chamados',
+        element: (
+          <ProtectedRoute roles={['TECHNICIAN', 'ADMIN']}>
+            <TicketsPage key="all" scope="all" />
+          </ProtectedRoute>
+        ),
+      },
+      { path: 'chamados/meus', element: <TicketsPage key="mine" scope="mine" /> },
+      {
+        path: 'chamados/nao-atribuidos',
+        element: (
+          <ProtectedRoute roles={['TECHNICIAN', 'ADMIN']}>
+            <TicketsPage key="unassigned" scope="unassigned" />
+          </ProtectedRoute>
+        ),
+      },
+      { path: 'chamados/novo', element: <NewTicketPage /> },
+      { path: 'chamados/:ticketId', element: <TicketDetailsPage /> },
       { path: 'perfil', element: <ProfilePage /> },
     ],
   },

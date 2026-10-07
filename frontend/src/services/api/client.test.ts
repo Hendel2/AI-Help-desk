@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { buildApiUrl, del, get, post, put, setAccessTokenGetter } from './client'
+import { apiRequest, buildApiUrl, del, get, post, put, setAccessTokenGetter } from './client'
 import { ApiError, CLIENT_ERROR_CODES } from './errors'
 
 // Único arquivo de teste que substitui o `fetch`: os demais mockam a camada de service.
@@ -192,3 +192,30 @@ describe('apiRequest helpers', () => {
     expect(lastRequest().headers.get('Authorization')).toBe('Bearer token-123')
   })
 })
+
+describe('upload e download', () => {
+  it('envia FormData sem serializar nem fixar o Content-Type', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ id: 1 }, 201))
+    const form = new FormData()
+    form.append('file', new File(['x'], 'a.txt'))
+
+    await post('/tickets/1/attachments', form)
+
+    const { init, headers } = lastRequest()
+    expect(init.body).toBe(form)
+    // O navegador define multipart/form-data com o boundary.
+    expect(headers.has('Content-Type')).toBe(false)
+  })
+
+  it('devolve Blob quando responseType é blob', async () => {
+    fetchMock.mockResolvedValue(new Response('conteúdo binário', { status: 200 }))
+
+    const blob = await apiRequest<Blob>('/tickets/1/attachments/2/download', {
+      responseType: 'blob',
+    })
+
+    expect(blob).toBeInstanceOf(Blob)
+    expect(await blob.text()).toBe('conteúdo binário')
+  })
+})
+

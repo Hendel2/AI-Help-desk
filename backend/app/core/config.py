@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     UPLOAD_DIR: Path = BACKEND_DIR / "uploads"
     MAX_UPLOAD_SIZE_MB: int = Field(default=10, ge=1, le=1024)
 
+    # Monitor de SLA embutido na API (alertas de vencimento). 0 = desligado.
+    SLA_MONITOR_INTERVAL_SECONDS: int = Field(default=300, ge=0, le=86_400)
+
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def _split_cors_origins(cls, value: object) -> object:

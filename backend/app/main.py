@@ -8,7 +8,9 @@ from app.core.config import APP_NAME, APP_VERSION, Settings, get_settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging
 from app.core.middleware import REQUEST_ID_HEADER, RequestContextMiddleware
+from app.core.scheduler import lifespan
 from app.schemas.common import ErrorResponse
+from app.services.ai.provider import get_provider
 
 API_PREFIX = "/api/v1"
 
@@ -26,12 +28,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         swagger_ui_oauth2_redirect_url="/api/docs/oauth2-redirect" if docs_enabled else None,
         redoc_url=None,
         openapi_url="/api/openapi.json" if docs_enabled else None,
+        lifespan=lifespan,
         responses={
             422: {"model": ErrorResponse, "description": "Dados inválidos"},
             500: {"model": ErrorResponse, "description": "Erro interno"},
         },
     )
     app.state.settings = settings
+    # Provedor de IA (None = modo local/heurístico), criado uma vez por aplicação.
+    app.state.ai_provider = get_provider(settings)
 
     # A ordem importa: o último middleware adicionado é o mais externo.
     app.add_middleware(

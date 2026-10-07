@@ -1,5 +1,5 @@
 import { get, post } from '@/services/api/client'
-import { isApiError } from '@/services/api/errors'
+import { isApiError, isSessionRejected } from '@/services/api/errors'
 
 import { clearTokens, getRefreshToken, saveTokens } from '../tokenStorage'
 import type { CurrentUser, LoginCredentials, RegisterData, TokenResponse } from '../types'
@@ -34,8 +34,9 @@ export async function getMeWithRefresh(signal?: AbortSignal): Promise<CurrentUse
     if (!isApiError(error) || error.status !== 401 || !refreshToken) {
       throw error
     }
-    const tokens = await refreshSession(refreshToken).catch((refreshError) => {
-      clearTokens()
+    const tokens = await refreshSession(refreshToken).catch((refreshError: unknown) => {
+      // Refresh token recusado: sessão encerrada. Falha de rede: mantém os tokens.
+      if (isSessionRejected(refreshError)) clearTokens()
       throw refreshError
     })
     saveTokens(tokens)

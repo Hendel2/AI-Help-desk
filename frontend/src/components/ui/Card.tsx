@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useId } from 'react'
 
 import { cx } from './styles'
 
@@ -17,11 +18,18 @@ export interface CardProps {
  * Nunca card dentro de card, nem card para envolver a página inteira.
  */
 export function Card({ title, action, className, children }: CardProps) {
+  const titleId = useId()
   return (
-    <section className={cx('rounded-lg border border-border bg-surface', className)}>
+    // Com título, a seção vira uma região nomeada navegável por leitores de tela.
+    <section
+      aria-labelledby={title ? titleId : undefined}
+      className={cx('rounded-lg border border-border bg-surface', className)}
+    >
       {title ? (
         <header className="flex items-center justify-between gap-4 border-b border-border px-4 py-3">
-          <h2 className="text-sm font-semibold text-text">{title}</h2>
+          <h2 id={titleId} className="text-sm font-semibold text-text">
+            {title}
+          </h2>
           {action}
         </header>
       ) : null}

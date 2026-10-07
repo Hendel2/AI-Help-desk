@@ -31,7 +31,7 @@ export function Badge({ tone = 'neutral', withDot = true, className, children }:
   return (
     <span
       className={cx(
-        'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium text-text',
+        'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap text-text',
         border,
         background,
         className,

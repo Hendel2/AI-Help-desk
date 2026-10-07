@@ -1,9 +1,10 @@
-import { get, post, put } from '@/services/api/client'
+import { apiRequest, get, post, put } from '@/services/api/client'
 import type { Paginated } from '@/types/api'
 
 import type {
   Category,
   Ticket,
+  TicketAttachment,
   TicketComment,
   TicketCreateData,
   TicketHistoryEntry,
@@ -86,4 +87,21 @@ export function listHistory(id: number, signal?: AbortSignal): Promise<TicketHis
 
 export function listCategories(signal?: AbortSignal): Promise<Category[]> {
   return get<Category[]>('/categories', { signal })
+}
+
+export function listAttachments(id: number, signal?: AbortSignal): Promise<TicketAttachment[]> {
+  return get<TicketAttachment[]>(`/tickets/${id}/attachments`, { signal })
+}
+
+export function uploadAttachment(id: number, file: File): Promise<TicketAttachment> {
+  const form = new FormData()
+  form.append('file', file)
+  return post<TicketAttachment>(`/tickets/${id}/attachments`, form)
+}
+
+/** O download exige o token de acesso, por isso não é um link direto. */
+export function downloadAttachment(ticketId: number, attachmentId: number): Promise<Blob> {
+  return apiRequest<Blob>(`/tickets/${ticketId}/attachments/${attachmentId}/download`, {
+    responseType: 'blob',
+  })
 }

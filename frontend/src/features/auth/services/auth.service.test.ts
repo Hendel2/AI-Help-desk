@@ -103,4 +103,15 @@ describe('getMeWithRefresh', () => {
     await expect(getMeWithRefresh()).rejects.toBeInstanceOf(ApiError)
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
+
+  it('mantém a sessão quando a renovação falha por rede (regressão)', async () => {
+    saveTokens({ ...NEW_TOKENS, access_token: 'expirado', refresh_token: 'refresh-valido' })
+    fetchMock
+      .mockResolvedValueOnce(unauthorizedResponse())
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+
+    await expect(getMeWithRefresh()).rejects.toMatchObject({ code: 'NETWORK_ERROR' })
+    expect(getAccessToken()).toBe('expirado')
+  })
 })
+

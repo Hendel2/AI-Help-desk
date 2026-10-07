@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from app.models import Category, SLAPolicy, Ticket
-from app.models.enums import SLAStatus, TicketPriority
+from app.models.enums import SLAStatus, TicketPriority, TicketStatus
 from app.models.types import utcnow
 
 # Fração final do prazo em que o chamado entra em alerta (§21: "próximo do vencimento").
@@ -108,6 +108,10 @@ _SEVERITY = {SLAStatus.BREACHED: 3, SLAStatus.WARNING: 2, SLAStatus.ON_TIME: 1}
 
 def evaluate(ticket: Ticket, *, now: datetime | None = None) -> SLAInfo:
     """Estado atual do SLA do chamado."""
+    if ticket.status is TicketStatus.CANCELLED:
+        # Cancelado não é atendido nem resolvido: o SLA deixa de se aplicar.
+        stopped = SLAClock(deadline=None, completed_at=None, status=None, remaining_seconds=None)
+        return SLAInfo(response=stopped, resolution=stopped, status=None)
     now = now or utcnow()
     response = _clock(ticket.created_at, ticket.response_deadline, ticket.first_response_at, now)
     resolution = _clock(ticket.created_at, ticket.resolution_deadline, ticket.resolved_at, now)

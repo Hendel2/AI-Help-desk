@@ -4,7 +4,7 @@ import re
 from collections.abc import Sequence
 from datetime import datetime
 
-from sqlalchemy import Select, func, or_, select
+from sqlalchemy import ColumnElement, Select, func, or_, select
 from sqlalchemy.orm import joinedload
 
 from app.models import Category, SLAPolicy, Ticket, TicketComment, TicketHistory
@@ -177,17 +177,29 @@ class TicketCommentRepository:
         return self.session.scalars(stmt).first() is not None  # type: ignore[attr-defined]
 
 
+INTERNAL_COMMENT_FIELD = "internal_comment"
+
+
+def hide_internal_history() -> ColumnElement[bool]:
+    """Filtro que remove do histórico os registros de comentários internos."""
+    return or_(TicketHistory.field.is_(None), TicketHistory.field != INTERNAL_COMMENT_FIELD)
+
+
 class TicketHistoryRepository:
     def __init__(self, session: object) -> None:
         self.session = session  # type: ignore[assignment]
 
-    def list_for_ticket(self, ticket_id: int) -> Sequence[TicketHistory]:
+    def list_for_ticket(
+        self, ticket_id: int, *, include_internal: bool = True
+    ) -> Sequence[TicketHistory]:
         stmt = (
             select(TicketHistory)
             .where(TicketHistory.ticket_id == ticket_id)
             .options(joinedload(TicketHistory.user))
             .order_by(TicketHistory.created_at, TicketHistory.id)
         )
+        if not include_internal:
+            stmt = stmt.where(hide_internal_history())
         return self.session.scalars(stmt).unique().all()  # type: ignore[attr-defined]
 
     def add(self, entry: TicketHistory) -> TicketHistory:

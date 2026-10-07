@@ -59,3 +59,13 @@ def test_demo_users_can_log_in(
         headers={"Authorization": f"Bearer {response.json()['access_token']}"},
     ).json()
     assert listing["total"] >= 30
+
+
+def test_seed_numbers_follow_the_opening_order(
+    db_session: Session, seed_roles: dict[RoleName, Any]
+) -> None:
+    seed(db_session)
+
+    tickets = db_session.scalars(select(Ticket).order_by(Ticket.created_at)).all()
+
+    assert [t.ticket_number for t in tickets] == sorted(t.ticket_number for t in tickets)

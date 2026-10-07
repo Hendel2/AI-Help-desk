@@ -5,7 +5,7 @@ from datetime import timedelta
 import pytest
 
 from app.models import Category, SLAPolicy, Ticket
-from app.models.enums import SLAStatus, TicketPriority
+from app.models.enums import SLAStatus, TicketPriority, TicketStatus
 from app.models.types import utcnow
 from app.services import sla
 
@@ -147,3 +147,13 @@ class TestEvaluate:
         ticket.resolution_deadline = ticket.created_at + timedelta(minutes=480)
 
         assert sla.evaluate(ticket).status is expected
+
+    def test_cancelled_ticket_has_no_sla(self) -> None:
+        ticket = make_ticket(opened_minutes_ago=600, status=TicketStatus.CANCELLED)
+        ticket.response_deadline = ticket.created_at + timedelta(minutes=60)
+        ticket.resolution_deadline = ticket.created_at + timedelta(minutes=120)
+
+        info = sla.evaluate(ticket)
+
+        assert info.status is None
+        assert info.resolution.status is None

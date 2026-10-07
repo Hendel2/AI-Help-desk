@@ -1,6 +1,8 @@
 import { screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { ApiError } from '@/services/api/errors'
 import { renderWithProviders } from '@/test/utils'
 
 import { clearTokens, saveTokens } from '../tokenStorage'
@@ -76,7 +78,9 @@ describe('ProtectedRoute', () => {
 
   it('redireciona para o login quando o token é recusado pelo backend', async () => {
     saveTokens(TOKENS)
-    vi.mocked(getMeWithRefresh).mockRejectedValue(new Error('401'))
+    vi.mocked(getMeWithRefresh).mockRejectedValue(
+      new ApiError({ status: 401, code: 'INVALID_TOKEN', message: 'Sessão inválida.' }),
+    )
 
     renderWithProviders(<div />, { routes: routes(), route: '/perfil', withAuth: true })
 
@@ -95,4 +99,25 @@ describe('ProtectedRoute', () => {
     expect(await screen.findByRole('heading', { name: 'Início' })).toBeInTheDocument()
     expect(screen.queryByText('Área protegida')).not.toBeInTheDocument()
   })
+
+  it.each([
+    ['cancelamento', new DOMException('The operation was aborted.', 'AbortError')],
+    ['queda de rede', new ApiError({ status: 0, code: 'NETWORK_ERROR', message: 'Sem conexão.' })],
+    ['erro do servidor', new ApiError({ status: 500, code: 'INTERNAL_ERROR', message: 'Falhou.' })],
+  ])('%s não encerra a sessão: mostra erro e permite tentar de novo (regressão)', async (_, error) => {
+    const user = userEvent.setup()
+    saveTokens(TOKENS)
+    vi.mocked(getMeWithRefresh).mockRejectedValueOnce(error).mockResolvedValue(USER)
+
+    renderWithProviders(<div />, { routes: routes(), route: '/perfil', withAuth: true })
+
+    expect(await screen.findByText('Não foi possível verificar sua sessão.')).toBeInTheDocument()
+    // Os tokens continuam guardados: recarregar a página não desloga.
+    expect(window.localStorage.getItem('ai-helpdesk.access_token')).toBe('access')
+
+    await user.click(screen.getByRole('button', { name: 'Tentar novamente' }))
+
+    expect(await screen.findByRole('heading', { name: 'Área protegida' })).toBeInTheDocument()
+  })
 })
+

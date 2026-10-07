@@ -27,6 +27,7 @@ from app.models.enums import (
 from app.models.types import utcnow
 from app.repositories.audit_log import AuditLogRepository
 from app.repositories.ticket import (
+    INTERNAL_COMMENT_FIELD,
     CategoryRepository,
     SLAPolicyRepository,
     TicketCommentRepository,
@@ -37,6 +38,7 @@ from app.repositories.ticket import (
 from app.repositories.user import UserRepository
 from app.schemas.ticket import TicketCreate, TicketUpdate
 from app.services import sla
+from app.services.notifications import NotificationService
 
 logger = logging.getLogger("app.tickets")
 
@@ -98,6 +100,7 @@ class TicketService:
         self.sla_policies = SLAPolicyRepository(session)
         self.users = UserRepository(session)
         self.audit = AuditLogRepository(session)
+        self.notifications = NotificationService(session)
 
     # --- Leitura ------------------------------------------------------------
 
@@ -123,7 +126,7 @@ class TicketService:
 
     def list_history(self, user: User, ticket_id: int) -> Sequence[TicketHistory]:
         ticket = self.get(user, ticket_id)
-        return self.history.list_for_ticket(ticket.id)
+        return self.history.list_for_ticket(ticket.id, include_internal=is_staff(user))
 
     def evaluate_sla(self, ticket: Ticket, *, now: datetime | None = None) -> sla.SLAInfo:
         return sla.evaluate(ticket, now=now)
@@ -179,6 +182,7 @@ class TicketService:
 
         ticket = self._add_with_number(user.company_id, ticket)
         self._record(ticket, user, TicketHistoryAction.CREATED)
+        self.notifications.ticket_created(ticket, user)
         self.audit.record(
             action=AuditAction.TICKET_CREATED,
             entity="ticket",
@@ -311,6 +315,7 @@ class TicketService:
         )
         if ticket.status in {TicketStatus.OPEN, TicketStatus.TRIAGE}:
             self._apply_status(ticket, user, TicketStatus.ASSIGNED)
+        self.notifications.ticket_assigned(ticket, user)
 
         self._audit_update(ticket, user, ip_address)
         self.session.commit()
@@ -350,10 +355,16 @@ class TicketService:
                 old_value=None,
                 new_value=user.name,
             )
+            self.notifications.ticket_assigned(ticket, user)
 
         self._apply_status(ticket, user, status)
         if comment:
-            self._add_comment(ticket, user, comment, is_internal=False)
+            # Na resolução o aviso é "chamado resolvido", não "nova mensagem".
+            self._add_comment(
+                ticket, user, comment, is_internal=False, notify=status is not TicketStatus.RESOLVED
+            )
+        if status is TicketStatus.RESOLVED:
+            self.notifications.ticket_resolved(ticket, user)
         self._audit_update(ticket, user, ip_address)
         self.session.commit()
         return self.get(user, ticket.id)
@@ -412,13 +423,21 @@ class TicketService:
         return comment
 
     def _add_comment(
-        self, ticket: Ticket, user: User, content: str, *, is_internal: bool
+        self,
+        ticket: Ticket,
+        user: User,
+        content: str,
+        *,
+        is_internal: bool,
+        notify: bool = True,
     ) -> TicketComment:
         comment = self.comments.add(
             TicketComment(
                 ticket_id=ticket.id, user_id=user.id, content=content, is_internal=is_internal
             )
         )
+        if notify:
+            self.notifications.comment_added(ticket, user, is_internal=is_internal)
         # Primeira resposta pública de quem não é o solicitante fecha o SLA de resposta (§21).
         if (
             not is_internal
@@ -427,7 +446,13 @@ class TicketService:
             and is_staff(user)
         ):
             ticket.first_response_at = utcnow()
-        self._record(ticket, user, TicketHistoryAction.COMMENTED)
+        # Comentário interno fica marcado para não aparecer no histórico do solicitante.
+        self._record(
+            ticket,
+            user,
+            TicketHistoryAction.COMMENTED,
+            field=INTERNAL_COMMENT_FIELD if is_internal else None,
+        )
         return comment
 
     # --- Apoio --------------------------------------------------------------

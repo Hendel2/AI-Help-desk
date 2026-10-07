@@ -60,6 +60,8 @@ function SidebarItem({ item, onNavigate }: { item: NavItem; onNavigate?: () => v
   return (
     <NavLink
       to={to}
+      // "/" e "/chamados" só ficam ativos na rota exata (não em "/chamados/meus").
+      end={to === '/' || to === '/chamados'}
       onClick={onNavigate}
       className={({ isActive }) =>
         cx(

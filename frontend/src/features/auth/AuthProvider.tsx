@@ -9,6 +9,8 @@ import {
   login as loginRequest,
   register as registerRequest,
 } from './services/auth.service'
+import { isSessionRejected } from '@/services/api/errors'
+
 import { clearTokens, hasSession, saveTokens } from './tokenStorage'
 import type { LoginCredentials, RegisterData, RoleName } from './types'
 
@@ -21,7 +23,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       return await getMeWithRefresh(signal)
     } catch (error) {
-      clearTokens()
+      // Só o backend encerra a sessão. Uma requisição cancelada (ex.: montagem
+      // dupla do StrictMode, troca de rota) ou uma queda de rede não pode
+      // apagar os tokens — isso deslogaria o usuário sem motivo.
+      if (isSessionRejected(error)) clearTokens()
       throw error
     }
   }, [])
@@ -66,11 +71,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryClient.clear()
   }, [queryClient])
 
-  // Sessão recusada pelo backend: trata como não autenticado (sem setState em efeito).
-  const sessionValid = sessionActive && !meQuery.isError
-  const user = sessionValid ? (meQuery.data ?? null) : null
+  // Sessão recusada pelo backend → não autenticado. Falha de rede/servidor →
+  // estado de erro com nova tentativa (sem deslogar). Sem setState em efeito.
+  const sessionRejected = meQuery.isError && isSessionRejected(meQuery.error)
+  const user = sessionActive && !meQuery.isError ? (meQuery.data ?? null) : null
 
-  const status: AuthStatus = !sessionValid ? 'unauthenticated' : user ? 'authenticated' : 'loading'
+  let status: AuthStatus
+  if (!sessionActive || sessionRejected) status = 'unauthenticated'
+  else if (meQuery.isError) status = 'error'
+  else status = user ? 'authenticated' : 'loading'
+
+  const { refetch } = meQuery
+  const retry = useCallback(() => {
+    void refetch()
+  }, [refetch])
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -80,9 +94,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       register,
       logout,
+      retry,
       hasRole: (...roles: RoleName[]) => (user ? roles.includes(user.role) : false),
     }),
-    [user, status, login, register, logout],
+    [user, status, login, register, logout, retry],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

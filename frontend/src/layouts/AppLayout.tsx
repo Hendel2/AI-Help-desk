@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { Outlet } from 'react-router'
 
 import { Drawer } from '@/components/ui/Drawer'
+import { SkeletonText } from '@/components/ui/Skeleton'
 import { useAuth } from '@/features/auth/useAuth'
 
 import { Sidebar } from './Sidebar'
@@ -41,7 +42,10 @@ export function AppLayout() {
       <div className="flex min-w-0 flex-col">
         <Topbar user={user} onOpenMenu={() => setIsMenuOpen(true)} />
         <main id="conteudo" className="flex-1 p-4 md:p-6 lg:p-8">
-          <Outlet />
+          {/* Telas carregadas sob demanda: esqueleto enquanto o código chega. */}
+          <Suspense fallback={<SkeletonText lines={6} className="mx-auto max-w-6xl" />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>

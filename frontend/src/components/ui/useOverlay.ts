@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import type { RefObject } from 'react'
 
 const FOCUSABLE_SELECTOR = [
@@ -29,6 +29,14 @@ interface UseOverlayOptions {
  * página e devolve o foco ao elemento que abriu o overlay.
  */
 export function useOverlay({ isOpen, onClose, containerRef }: UseOverlayOptions): void {
+  // `onClose` costuma ser recriado a cada render do componente pai. Se fosse
+  // dependência do efeito abaixo, cada tecla digitada num campo do overlay
+  // reexecutaria o efeito e roubaria o foco. Guardamos sempre a versão atual.
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
+
   useEffect(() => {
     if (!isOpen) return
 
@@ -38,7 +46,7 @@ export function useOverlay({ isOpen, onClose, containerRef }: UseOverlayOptions)
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.stopPropagation()
-        onClose()
+        onCloseRef.current()
         return
       }
       if (event.key !== 'Tab') return
@@ -71,5 +79,5 @@ export function useOverlay({ isOpen, onClose, containerRef }: UseOverlayOptions)
       document.body.style.overflow = previousOverflow
       previouslyFocused?.focus()
     }
-  }, [isOpen, onClose, containerRef])
+  }, [isOpen, containerRef])
 }

@@ -39,7 +39,8 @@ const USER: CurrentUser = {
 const routes = [
   { path: '/login', element: <LoginPage /> },
   {
-    path: '/perfil',
+    // Sem rota de origem, o login leva para a home autenticada.
+    path: '/',
     element: (
       <ProtectedRoute>
         <h1>Meu perfil</h1>

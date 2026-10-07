@@ -14,6 +14,15 @@ vi.mock('@/features/auth/services/auth.service', () => ({
   register: vi.fn(),
 }))
 
+vi.mock('@/features/notifications/services/notifications.service', () => ({
+  notificationsService: {
+    unreadCount: vi.fn().mockResolvedValue({ unread: 0 }),
+    list: vi.fn(),
+    markRead: vi.fn(),
+    markAllRead: vi.fn(),
+  },
+}))
+
 const { getMeWithRefresh } = await import('@/features/auth/services/auth.service')
 
 const TOKENS: TokenResponse = {
@@ -104,7 +113,7 @@ describe('AppLayout', () => {
       'aria-current',
       'page',
     )
-    expect(within(nav).queryByRole('link', { name: /Dashboard/ })).not.toBeInTheDocument()
+    expect(within(nav).queryByRole('link', { name: /Assistente IA/ })).not.toBeInTheDocument()
     const unavailable = within(nav).getAllByTitle('Disponível em breve')
     expect(unavailable.length).toBeGreaterThan(0)
     expect(unavailable[0]).toHaveAttribute('aria-disabled', 'true')

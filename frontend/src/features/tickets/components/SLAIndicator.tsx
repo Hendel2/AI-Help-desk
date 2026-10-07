@@ -20,7 +20,11 @@ export function SLAIndicator({ sla, status, className }: SLAIndicatorProps) {
   const base = cx('inline-flex items-center gap-1.5 text-sm tabular-nums', className)
 
   if (sla.status === null) {
-    return <span className={cx(base, 'text-secondary')}>Sem SLA</span>
+    return (
+      <span className={cx(base, 'text-secondary')}>
+        {status === 'CANCELLED' ? 'Não se aplica' : 'Sem SLA'}
+      </span>
+    )
   }
 
   if (FINAL_STATUSES.has(status)) {

@@ -38,7 +38,7 @@ export interface NavSection {
 export const NAV_SECTIONS: NavSection[] = [
   {
     items: [
-      { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard, available: false },
+      { label: 'Dashboard', to: '/', icon: LayoutDashboard, available: true },
       { label: 'Assistente IA', to: '/assistente', icon: Bot, available: false },
       { label: 'Base de conhecimento', to: '/base-de-conhecimento', icon: BookOpen, available: false },
     ],
@@ -50,15 +50,15 @@ export const NAV_SECTIONS: NavSection[] = [
         label: 'Todos',
         to: '/chamados',
         icon: Ticket,
-        available: false,
+        available: true,
         roles: ['TECHNICIAN', 'ADMIN'],
       },
-      { label: 'Meus chamados', to: '/chamados/meus', icon: Ticket, available: false },
+      { label: 'Meus chamados', to: '/chamados/meus', icon: Ticket, available: true },
       {
         label: 'Não atribuídos',
         to: '/chamados/nao-atribuidos',
         icon: Ticket,
-        available: false,
+        available: true,
         roles: ['TECHNICIAN', 'ADMIN'],
       },
     ],
