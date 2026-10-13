@@ -5,6 +5,7 @@ import { ErrorState } from '@/components/ErrorState'
 import { Pagination } from '@/components/ui/Pagination'
 import { Select } from '@/components/ui/Select'
 import { SkeletonText } from '@/components/ui/Skeleton'
+import { cx, FOCUS_RING } from '@/components/ui/styles'
 import { AdminHeader } from '@/features/admin/components/AdminHeader'
 import { useAuditLog } from '@/features/admin/hooks/useAdmin'
 import { AUDIT_ACTION_LABELS, ENTITY_LABELS } from '@/features/admin/labels'
@@ -82,7 +83,16 @@ export function AuditPage() {
         <EmptyState title="Nenhum registro encontrado." description="Ajuste o filtro de ação." />
       ) : (
         <>
-          <div className="relative overflow-x-auto rounded-lg border border-border bg-surface">
+          {/* Sem elementos focáveis dentro: o próprio contêiner recebe foco para rolar pelo teclado. */}
+          <div
+            role="region"
+            aria-label="Registros de auditoria"
+            tabIndex={0}
+            className={cx(
+              'relative overflow-x-auto rounded-lg border border-border bg-surface',
+              FOCUS_RING,
+            )}
+          >
             <table className="w-full text-left text-sm">
               <caption className="sr-only">Registros de auditoria</caption>
               <thead className="border-b border-border text-xs text-secondary">

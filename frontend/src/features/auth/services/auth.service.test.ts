@@ -4,7 +4,7 @@ import { ApiError } from '@/services/api/errors'
 
 import { clearTokens, getAccessToken, saveTokens } from '../tokenStorage'
 import type { CurrentUser, TokenResponse } from '../types'
-import { getMeWithRefresh, login } from './auth.service'
+import { changePassword, getMeWithRefresh, login } from './auth.service'
 
 const USER: CurrentUser = {
   id: 1,
@@ -63,6 +63,35 @@ describe('login', () => {
     expect(init.body).toBe(
       JSON.stringify({ email: 'maria@empresa.com', password: 'senha-secreta' }),
     )
+  })
+})
+
+describe('changePassword', () => {
+  it('guarda os tokens novos: as outras sessões caem, esta continua', async () => {
+    saveTokens({ ...NEW_TOKENS, access_token: 'access-antigo' })
+    fetchMock.mockResolvedValueOnce(jsonResponse(NEW_TOKENS))
+
+    await changePassword('senha-atual', 'nova-senha-1')
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toContain('/auth/change-password')
+    expect(init.body).toBe(
+      JSON.stringify({ current_password: 'senha-atual', new_password: 'nova-senha-1' }),
+    )
+    expect(getAccessToken()).toBe('novo-access')
+  })
+
+  it('mantém a sessão quando a senha atual está errada', async () => {
+    saveTokens({ ...NEW_TOKENS, access_token: 'access-atual' })
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        { error: { code: 'INVALID_PASSWORD', message: 'A senha atual está incorreta.' } },
+        400,
+      ),
+    )
+
+    await expect(changePassword('errada', 'nova-senha-1')).rejects.toBeInstanceOf(ApiError)
+    expect(getAccessToken()).toBe('access-atual')
   })
 })
 

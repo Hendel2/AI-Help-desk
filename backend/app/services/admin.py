@@ -12,18 +12,17 @@ Regras principais:
 from datetime import timedelta
 from typing import Any
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.core.exceptions import BadRequestError, ConflictError, ForbiddenError, NotFoundError
-from app.core.security import hash_password
+from app.core.security import hash_password, password_change_timestamp
 from app.models import Category, Company, Department, SLAPolicy, User
 from app.models.enums import AuditAction, RoleName
 from app.models.types import utcnow
 from app.repositories.admin import AdminRepository
 from app.repositories.audit_log import AuditLogRepository
-from app.repositories.user import RoleRepository, UserRepository
+from app.repositories.user import CompanyRepository, RoleRepository, UserRepository
 from app.schemas.admin import (
     AISettingsRead,
     AuditLogRead,
@@ -144,11 +143,14 @@ class AdminService:
                 )
             if current_role is RoleName.ADMIN:
                 self._ensure_other_admin(user)
+            if new_role is RoleName.USER:
+                self._ensure_no_active_assignments(user)
         if changes.get("is_active") is False and user.is_active:
             if is_self:
                 raise BadRequestError("Você não pode desativar a si mesmo.", code="SELF_LOCKOUT")
             if current_role is RoleName.ADMIN:
                 self._ensure_other_admin(user)
+            self._ensure_no_active_assignments(user)
 
         if "email" in changes and changes["email"] is not None:
             user.email = self._check_email(changes["email"], current=user)
@@ -159,6 +161,8 @@ class AdminService:
             user.name = changes["name"]
         if changes.get("password"):
             user.password_hash = hash_password(changes["password"])
+            # Senha redefinida pelo admin: sessões abertas desse usuário caem.
+            user.password_changed_at = password_change_timestamp()
         if changes.get("is_active") is not None:
             user.is_active = changes["is_active"]
 
@@ -188,9 +192,21 @@ class AdminService:
             return
         if user.role.name is RoleName.ADMIN:
             self._ensure_other_admin(user)
+        self._ensure_no_active_assignments(user)
         user.is_active = False
         self._record(AuditAction.USER_DELETED, "user", user.id, {"soft": True})
         self.session.commit()
+
+    def _ensure_no_active_assignments(self, user: User) -> None:
+        """Chamados em atendimento exigem técnico (§15): reatribuir antes de desativar/rebaixar."""
+        active = self.repo.count_active_assigned(self.company_id, user.id)
+        if active:
+            raise ConflictError(
+                f"{user.name} tem {active} chamado(s) em aberto atribuído(s). "
+                "Reatribua-os a outro técnico antes de continuar.",
+                code="USER_HAS_ACTIVE_TICKETS",
+                details={"active_tickets": active},
+            )
 
     def _ensure_other_admin(self, user: User) -> None:
         active_others = self.repo.count_active_admins(self.company_id) - (
@@ -316,19 +332,19 @@ class AdminService:
     # --- Empresa -----------------------------------------------------------------------
 
     def get_company(self) -> Company:
-        company = self.session.get(Company, self.company_id)
+        company = CompanyRepository(self.session).get(self.company_id)
         if company is None:  # pragma: no cover - o usuário sempre tem empresa
             raise NotFoundError()
         return company
 
     def update_company(self, data: CompanyUpdate) -> Company:
         company = self.get_company()
-        if data.cnpj and data.cnpj != company.cnpj:
-            taken = self.session.scalars(
-                select(Company.id).where(Company.cnpj == data.cnpj, Company.id != company.id)
-            ).first()
-            if taken is not None:
-                raise ConflictError("Este CNPJ já está cadastrado.", code="CNPJ_IN_USE")
+        if (
+            data.cnpj
+            and data.cnpj != company.cnpj
+            and CompanyRepository(self.session).cnpj_taken(data.cnpj, exclude_id=company.id)
+        ):
+            raise ConflictError("Este CNPJ já está cadastrado.", code="CNPJ_IN_USE")
         for field, value in data.model_dump().items():
             setattr(company, field, value)
         self._settings_changed("company", company.id, "update")

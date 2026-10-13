@@ -464,10 +464,41 @@ def _create_knowledge(
     return articles
 
 
-def seed(session: Session, store: VectorStore | None = None) -> bool:
-    """Cria os dados. Retorna False se a empresa demo já existir."""
-    if session.scalars(select(Company).where(Company.name == DEMO_COMPANY)).first():
+def _index(session: Session, store: VectorStore | None, articles: list[KnowledgeArticle]) -> None:
+    # Indexa no banco vetorial configurado; se estiver fora do ar, os trechos ficam no
+    # banco e a busca de contingência do RAG continua funcionando.
+    rag = RAGService(session, store or build_vector_store(get_settings()), HashingEmbedder())
+    for article in articles:
+        rag.index_article(article)
+
+
+def _complete_knowledge(session: Session, company: Company, store: VectorStore | None) -> bool:
+    """Empresa demo criada por uma versão sem base de conhecimento: adiciona os artigos."""
+    has_articles = session.scalars(
+        select(KnowledgeArticle.id).where(KnowledgeArticle.company_id == company.id)
+    ).first()
+    admin = session.scalars(
+        select(User).where(User.company_id == company.id, User.email == "admin@demo.helpdesk")
+    ).first()
+    categories = {
+        category.name: category
+        for category in session.scalars(select(Category).where(Category.company_id == company.id))
+    }
+    needed = {category for category, *_ in KNOWLEDGE_ARTICLES}
+    if has_articles or admin is None or not needed <= categories.keys():
         return False
+    articles = _create_knowledge(session, company, admin, categories)
+    _index(session, store, articles)
+    session.commit()
+    print(f"Base de conhecimento demo adicionada ({len(articles)} artigos).")
+    return True
+
+
+def seed(session: Session, store: VectorStore | None = None) -> bool:
+    """Cria os dados (ou completa o que faltar). Retorna False se nada mudou."""
+    existing = session.scalars(select(Company).where(Company.name == DEMO_COMPANY)).first()
+    if existing is not None:
+        return _complete_knowledge(session, existing, store)
     roles = _ensure_roles(session)
     company = Company(name=DEMO_COMPANY, email="contato@demo.helpdesk")
     session.add(company)
@@ -476,11 +507,7 @@ def seed(session: Session, store: VectorStore | None = None) -> bool:
     categories, policies = _create_sla_and_categories(session, company)
     total = _create_tickets(session, company, users, categories, policies)
     articles = _create_knowledge(session, company, users.admin, categories)
-    # Indexa no banco vetorial configurado; se estiver fora do ar, os trechos ficam no
-    # banco e a busca de contingência do RAG continua funcionando.
-    rag = RAGService(session, store or build_vector_store(get_settings()), HashingEmbedder())
-    for article in articles:
-        rag.index_article(article)
+    _index(session, store, articles)
     session.commit()
     print(f"Empresa demo criada com {total} chamados.")
     return True
@@ -492,7 +519,7 @@ def main() -> None:
         sys.exit("O seed de demonstração não pode ser executado em produção.")
     with SessionLocal() as session:
         if not seed(session):
-            print("A empresa demo já existe; nada foi alterado.")
+            print("A empresa demo já existe e está completa; nada foi alterado.")
             return
     print("Usuários: admin@demo.helpdesk, tecnico@demo.helpdesk, usuario@demo.helpdesk")
     print(f"Senha de todos: {DEMO_PASSWORD}")

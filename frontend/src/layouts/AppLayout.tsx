@@ -28,12 +28,15 @@ export function AppLayout() {
         Ir para o conteúdo
       </a>
 
-      <div className="hidden border-r border-border bg-surface lg:flex lg:flex-col">
+      <aside
+        aria-label="Menu lateral"
+        className="hidden border-r border-border bg-surface lg:flex lg:flex-col"
+      >
         <div className="flex h-14 shrink-0 items-center border-b border-border px-4">
           <span className="font-semibold text-text">AI Help Desk</span>
         </div>
         <Sidebar role={user.role} className="flex-1 overflow-y-auto" />
-      </div>
+      </aside>
 
       <Drawer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} title="Navegação">
         <Sidebar role={user.role} onNavigate={() => setIsMenuOpen(false)} />

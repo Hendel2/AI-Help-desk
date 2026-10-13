@@ -30,14 +30,7 @@ from app.models.enums import (
     TicketStatus,
 )
 from app.repositories.base import _require_company_id
-
-ACTIVE_STATUSES = (
-    TicketStatus.OPEN,
-    TicketStatus.TRIAGE,
-    TicketStatus.ASSIGNED,
-    TicketStatus.IN_PROGRESS,
-    TicketStatus.WAITING_USER,
-)
+from app.repositories.ticket import ACTIVE_STATUSES
 
 
 @dataclass(frozen=True)

@@ -13,6 +13,7 @@ import { AdminHeader } from '@/features/admin/components/AdminHeader'
 import { useAISettings, useCompany, useUpdateCompany } from '@/features/admin/hooks/useAdmin'
 import type { AISettings, Company } from '@/features/admin/types'
 import { getErrorMessage } from '@/services/api/errors'
+import { formatPercent } from '@/utils/format'
 
 const schema = z.object({
   name: z.string().trim().min(2, 'Informe o nome.').max(150, 'Máximo de 150 caracteres.'),
@@ -145,8 +146,8 @@ function CompanyForm({ company }: { company: Company }) {
   )
 }
 
-const percent = (value: number | null) =>
-  value === null ? '—' : `${Math.round(value * 100).toLocaleString('pt-BR')}%`
+/** Taxas chegam de 0 a 1. */
+const percent = (rate: number | null) => (rate === null ? '—' : formatPercent(rate * 100))
 
 function AISummary({ settings }: { settings: AISettings }) {
   const rows = [

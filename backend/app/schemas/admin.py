@@ -8,7 +8,7 @@ from pydantic import BaseModel, EmailStr, Field, StringConstraints, field_valida
 
 from app.models.enums import AuditAction, RoleName, TicketPriority
 from app.schemas.auth import Name, Password
-from app.schemas.common import ORMModel
+from app.schemas.common import ORMModel, normalize_cnpj
 
 ShortName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=100)]
 Description = Annotated[str, StringConstraints(strip_whitespace=True, max_length=255)]
@@ -162,14 +162,7 @@ class CompanyUpdate(BaseModel):
     @field_validator("cnpj", mode="before")
     @classmethod
     def _normalize_cnpj(cls, value: object) -> object:
-        if not isinstance(value, str):
-            return value
-        digits = "".join(filter(str.isdigit, value))
-        if not digits:
-            return None
-        if len(digits) != 14:
-            raise ValueError("CNPJ deve conter 14 dígitos")
-        return digits
+        return normalize_cnpj(value)
 
 
 # --- Auditoria ----------------------------------------------------------------

@@ -5,7 +5,7 @@ from typing import Annotated
 from pydantic import BaseModel, EmailStr, Field, StringConstraints, field_validator
 
 from app.models.enums import RoleName
-from app.schemas.common import ORMModel
+from app.schemas.common import ORMModel, normalize_cnpj
 
 # Limites alinhados às colunas do modelo e ao Argon2.
 MIN_PASSWORD_LENGTH = 8
@@ -37,14 +37,7 @@ class RegisterRequest(BaseModel):
     @field_validator("cnpj", mode="before")
     @classmethod
     def _normalize_cnpj(cls, value: object) -> object:
-        if not isinstance(value, str):
-            return value
-        digits = "".join(filter(str.isdigit, value))
-        if not digits:
-            return None
-        if len(digits) != 14:
-            raise ValueError("CNPJ deve conter 14 dígitos")
-        return digits
+        return normalize_cnpj(value)
 
 
 class ChangePasswordRequest(BaseModel):

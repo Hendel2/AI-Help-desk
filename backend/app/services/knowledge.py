@@ -5,23 +5,23 @@ admin) também vê rascunhos e arquivados; somente ADMIN cria, edita, exclui,
 importa e reindexa. Publicar indexa no RAG; despublicar ou excluir remove.
 """
 
-from collections.abc import Sequence
-from typing import Literal
+# As classes têm um método `list`: sem isto, no Python < 3.14 as anotações
+# `list[...]` seguintes seriam resolvidas como o método, não como o tipo.
+from __future__ import annotations
 
-from sqlalchemy import func, or_, select, update
-from sqlalchemy.orm import Session, joinedload
+from collections.abc import Sequence
+
+from sqlalchemy.orm import Session
 
 from app.core.exceptions import BadRequestError, ForbiddenError, NotFoundError
 from app.models import Category, KnowledgeArticle, User
 from app.models.enums import ArticleSourceType, ArticleStatus, AuditAction, RoleName
 from app.repositories.audit_log import AuditLogRepository
-from app.repositories.base import _check_pagination
+from app.repositories.knowledge import ArticleSort, KnowledgeArticleRepository
 from app.repositories.ticket import CategoryRepository
 from app.services.ai.rag import RAGService, RetrievedSource
 from app.services.knowledge_text import ExtractionError, extract_text
 from app.services.tickets import is_staff
-
-ArticleSort = Literal["recent", "popular", "title"]
 
 
 class KnowledgeService:
@@ -29,14 +29,9 @@ class KnowledgeService:
         self.session = session
         self.rag = rag
         self.audit = AuditLogRepository(session)
+        self.articles = KnowledgeArticleRepository(session)
 
     # --- Leitura ------------------------------------------------------------
-
-    def _visible(self, user: User):  # type: ignore[no-untyped-def]
-        stmt = select(KnowledgeArticle).where(KnowledgeArticle.company_id == user.company_id)
-        if not is_staff(user):
-            stmt = stmt.where(KnowledgeArticle.status == ArticleStatus.PUBLISHED)
-        return stmt
 
     def list(
         self,
@@ -49,67 +44,27 @@ class KnowledgeService:
         offset: int,
         limit: int,
     ) -> tuple[Sequence[KnowledgeArticle], int]:
-        _check_pagination(offset, limit)
-        stmt = self._visible(user)
-        if search and search.strip():
-            like = f"%{search.strip()}%"
-            stmt = stmt.where(
-                or_(
-                    KnowledgeArticle.title.like(like),
-                    KnowledgeArticle.summary.like(like),
-                    KnowledgeArticle.content.like(like),
-                )
-            )
-        if category_id is not None:
-            stmt = stmt.where(KnowledgeArticle.category_id == category_id)
-        if status is not None:
-            if not is_staff(user) and status is not ArticleStatus.PUBLISHED:
-                return [], 0
-            stmt = stmt.where(KnowledgeArticle.status == status)
-
-        total = self.session.scalar(select(func.count()).select_from(stmt.subquery())) or 0
-        order = {
-            "recent": (KnowledgeArticle.updated_at.desc(), KnowledgeArticle.id.desc()),
-            "popular": (
-                KnowledgeArticle.is_featured.desc(),
-                KnowledgeArticle.view_count.desc(),
-                KnowledgeArticle.helpful_count.desc(),
-            ),
-            "title": (KnowledgeArticle.title.asc(),),
-        }[sort]
-        items = (
-            self.session.scalars(
-                stmt.options(
-                    joinedload(KnowledgeArticle.category), joinedload(KnowledgeArticle.author)
-                )
-                .order_by(*order)
-                .offset(offset)
-                .limit(limit)
-            )
-            .unique()
-            .all()
+        staff = is_staff(user)
+        # Quem não é da equipe só enxerga publicados: pedir rascunhos devolve vazio.
+        if status is not None and not staff and status is not ArticleStatus.PUBLISHED:
+            return [], 0
+        return self.articles.search(
+            user.company_id,
+            published_only=not staff,
+            search=search,
+            category_id=category_id,
+            status=status,
+            sort=sort,
+            offset=offset,
+            limit=limit,
         )
-        return items, total
 
     def get(self, user: User, article_id: int, *, count_view: bool = False) -> KnowledgeArticle:
-        article = (
-            self.session.scalars(
-                self._visible(user)
-                .where(KnowledgeArticle.id == article_id)
-                .options(joinedload(KnowledgeArticle.category), joinedload(KnowledgeArticle.author))
-            )
-            .unique()
-            .one_or_none()
-        )
+        article = self.articles.get(user.company_id, article_id, published_only=not is_staff(user))
         if article is None:
             raise NotFoundError("Artigo não encontrado.", code="ARTICLE_NOT_FOUND")
         if count_view and article.status is ArticleStatus.PUBLISHED:
-            # Incremento atômico no banco (sem condição de corrida entre leituras).
-            self.session.execute(
-                update(KnowledgeArticle)
-                .where(KnowledgeArticle.id == article.id)
-                .values(view_count=KnowledgeArticle.view_count + 1)
-            )
+            self.articles.increment_views(article.id)
             self.session.commit()
             self.session.refresh(article)
         return article
@@ -251,12 +206,7 @@ class KnowledgeService:
             raise BadRequestError(
                 "Somente artigos publicados podem ser avaliados.", code="ARTICLE_NOT_PUBLISHED"
             )
-        column = KnowledgeArticle.helpful_count if helpful else KnowledgeArticle.not_helpful_count
-        self.session.execute(
-            update(KnowledgeArticle)
-            .where(KnowledgeArticle.id == article.id)
-            .values({column: column + 1})
-        )
+        self.articles.increment_feedback(article.id, helpful=helpful)
         self.session.commit()
         self.session.refresh(article)
         return article

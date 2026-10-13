@@ -14,8 +14,8 @@ from sqlalchemy.orm import Session
 from app.models import Ticket, User
 from app.models.enums import RoleName, SLAStatus, TicketPriority, TicketStatus
 from app.models.types import utcnow
-from app.repositories.dashboard import ACTIVE_STATUSES, DashboardRepository, Scope
-from app.repositories.ticket import INTERNAL_COMMENT_FIELD
+from app.repositories.dashboard import DashboardRepository, Scope
+from app.repositories.ticket import ACTIVE_STATUSES, INTERNAL_COMMENT_FIELD
 from app.schemas.dashboard import (
     ActivityItem,
     CountItem,

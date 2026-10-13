@@ -64,7 +64,9 @@ export function Modal({
           SIZES[size],
         )}
       >
-        <header className="flex items-start justify-between gap-4 border-b border-border px-4 py-3">
+        {/* <div>, não <header>: o modal fica no <body> e um <header> ali viraria um
+            segundo landmark "banner" ao lado da barra superior. */}
+        <div className="flex items-start justify-between gap-4 border-b border-border px-4 py-3">
           <div className="space-y-1">
             <h2 id={titleId} className="text-sm font-semibold text-text">
               {title}
@@ -86,7 +88,7 @@ export function Modal({
           >
             <X aria-hidden="true" className="size-4" />
           </button>
-        </header>
+        </div>
         {children ? <div className="px-4 py-4 text-sm text-text">{children}</div> : null}
         {footer ? (
           <footer className="flex flex-col-reverse gap-2 border-t border-border px-4 py-3 sm:flex-row sm:justify-end">

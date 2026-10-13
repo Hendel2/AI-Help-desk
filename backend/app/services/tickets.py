@@ -7,6 +7,10 @@ Toda operação recebe o usuário autenticado e aplica, nesta ordem:
 4. efeitos: prazos de SLA, histórico (§20) e auditoria (§24).
 """
 
+# As classes têm um método `list`: sem isto, no Python < 3.14 as anotações
+# `list[...]` seguintes seriam resolvidas como o método, não como o tipo.
+from __future__ import annotations
+
 import logging
 from collections.abc import Sequence
 from datetime import datetime

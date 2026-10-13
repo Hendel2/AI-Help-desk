@@ -1,0 +1,33 @@
+"""Usuários registram quando a senha mudou: tokens emitidos antes deixam de valer.
+
+Revision ID: 0003
+Revises: 0002
+"""
+
+from collections.abc import Sequence
+
+import sqlalchemy as sa
+from alembic import op
+from sqlalchemy.dialects import mysql
+
+revision: str = "0003"
+down_revision: str | Sequence[str] | None = "0002"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
+
+
+def upgrade() -> None:
+    with op.batch_alter_table("users") as batch:
+        batch.add_column(
+            sa.Column(
+                "password_changed_at",
+                # Equivalente a app.models.types.UTCDateTime: DATETIME(6) no MySQL.
+                sa.DateTime().with_variant(mysql.DATETIME(fsp=6), "mysql"),
+                nullable=True,
+            )
+        )
+
+
+def downgrade() -> None:
+    with op.batch_alter_table("users") as batch:
+        batch.drop_column("password_changed_at")

@@ -9,14 +9,10 @@ import { Select } from '@/components/ui/Select'
 import { SkeletonText } from '@/components/ui/Skeleton'
 import { AIInsightsCard } from '@/features/dashboard/components/AIInsights'
 import { useDashboardAI, useDashboardTickets } from '@/features/dashboard/hooks/useDashboard'
+import { PERIOD_OPTIONS } from '@/features/dashboard/periods'
 import type { AIActionType } from '@/features/dashboard/types'
 import { getErrorMessage } from '@/services/api/errors'
-
-const PERIODS = [
-  { value: '7', label: 'Últimos 7 dias' },
-  { value: '30', label: 'Últimos 30 dias' },
-  { value: '90', label: 'Últimos 90 dias' },
-]
+import { formatPercent } from '@/utils/format'
 
 const ACTION_LABELS: Record<AIActionType, string> = {
   CHAT_RESPONSE: 'Respostas do assistente',
@@ -27,8 +23,7 @@ const ACTION_LABELS: Record<AIActionType, string> = {
   RAG_SEARCH: 'Buscas na base',
 }
 
-const percent = (value: number | null) =>
-  value === null ? null : `${Math.round(value).toLocaleString('pt-BR')}%`
+const percent = (value: number | null) => (value === null ? null : formatPercent(value))
 
 /** Indicadores (§41, etapa 18): desempenho do assistente, uso da IA e AI Insights. */
 export function ReportsPage() {
@@ -48,7 +43,7 @@ export function ReportsPage() {
         </div>
         <Select
           label="Período"
-          options={PERIODS}
+          options={PERIOD_OPTIONS}
           value={String(days)}
           onChange={(event) => setDays(Number(event.target.value))}
           containerClassName="sm:w-44"
@@ -99,7 +94,7 @@ export function ReportsPage() {
 
       <AIInsightsCard query={ai} />
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card title="Uso da IA por ação">
           {ai.isPending ? (
             <SkeletonText lines={4} />

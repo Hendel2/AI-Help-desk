@@ -10,14 +10,17 @@ Fluxo de cada mensagem:
    com `source=CHATBOT` (§65).
 """
 
+# As classes têm um método `list`: sem isto, no Python < 3.14 as anotações
+# `list[...]` seguintes seriam resolvidas como o método, não como o tipo.
+from __future__ import annotations
+
 import json
 import logging
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session
 
 from app.core.exceptions import ConflictError, NotFoundError
 from app.models import AIAction, AIFeedback, Conversation, Message, Ticket, User
@@ -29,7 +32,8 @@ from app.models.enums import (
     MessageRole,
     TicketSource,
 )
-from app.repositories.dashboard import ACTIVE_STATUSES
+from app.repositories.chat import ConversationRepository
+from app.repositories.ticket import TicketRepository
 from app.schemas.ticket import TicketCreate
 from app.services.ai.assistant import (
     CREDENTIAL_WARNING,
@@ -68,6 +72,8 @@ class ChatService:
         self.provider = provider
         self.rag = rag
         self.ai = AIService(session, provider)
+        self.conversations = ConversationRepository(session)
+        self.tickets = TicketRepository(session)
 
     # --- Conversas ----------------------------------------------------------
 
@@ -78,25 +84,11 @@ class ChatService:
         return self.get(user, conversation.id)
 
     def list(self, user: User, *, limit: int = 30) -> Sequence[Conversation]:
-        return self.session.scalars(
-            select(Conversation)
-            .where(Conversation.company_id == user.company_id, Conversation.user_id == user.id)
-            .order_by(Conversation.updated_at.desc(), Conversation.id.desc())
-            .limit(limit)
-        ).all()
+        return self.conversations.list_for_user(user.company_id, user.id, limit=limit)
 
     def get(self, user: User, conversation_id: int) -> Conversation:
         """Somente o dono vê a conversa (outra pessoa ou empresa → 404)."""
-        conversation = self.session.scalars(
-            select(Conversation)
-            .where(
-                Conversation.id == conversation_id,
-                Conversation.company_id == user.company_id,
-                Conversation.user_id == user.id,
-            )
-            .options(selectinload(Conversation.messages))
-            .execution_options(populate_existing=True)
-        ).one_or_none()
+        conversation = self.conversations.get_for_user(user.company_id, user.id, conversation_id)
         if conversation is None:
             raise NotFoundError("Conversa não encontrada.", code="CONVERSATION_NOT_FOUND")
         return conversation
@@ -196,16 +188,7 @@ class ChatService:
         return reply
 
     def _ticket_status(self, user: User) -> AssistantReply:
-        tickets = self.session.scalars(
-            select(Ticket)
-            .where(
-                Ticket.company_id == user.company_id,
-                Ticket.user_id == user.id,
-                Ticket.status.in_(ACTIVE_STATUSES),
-            )
-            .order_by(Ticket.created_at.desc())
-            .limit(5)
-        ).all()
+        tickets = self.tickets.active_for_requester(user.company_id, user.id, limit=5)
         if not tickets:
             text = "Você não tem chamados em aberto no momento."
         else:
@@ -282,16 +265,9 @@ class ChatService:
     def feedback(
         self, user: User, message_id: int, rating: AIFeedbackRating, text: str | None
     ) -> AIFeedback:
-        message = self.session.scalars(
-            select(Message)
-            .join(Conversation, Conversation.id == Message.conversation_id)
-            .where(
-                Message.id == message_id,
-                Message.role == MessageRole.ASSISTANT,
-                Conversation.company_id == user.company_id,
-                Conversation.user_id == user.id,
-            )
-        ).one_or_none()
+        message = self.conversations.assistant_message_for_user(
+            user.company_id, user.id, message_id
+        )
         if message is None:
             raise NotFoundError("Mensagem não encontrada.", code="MESSAGE_NOT_FOUND")
         feedback = AIFeedback(

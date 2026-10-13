@@ -32,7 +32,7 @@ Acesse http://localhost:5173 e entre com `admin@demo.helpdesk` / `demo12345` (ou
 2. Entre como **técnico**, assuma o chamado e use o **AI Copilot** para resumir e sugerir uma solução.
 3. Responda, resolva e veja o **SLA** e o **histórico** sendo atualizados.
 4. Volte como usuário, feche e avalie o atendimento.
-5. Entre como **administrador** e acompanhe os indicadores no dashboard.
+5. Entre como **administrador**: veja os **AI Insights** no dashboard, os **Indicadores** da IA e gerencie usuários, categorias e SLA em **Administração**.
 6. Teste o **Assistente de TI**: faça uma pergunta, veja a resposta com fontes e peça para abrir um chamado.
 
 ## Sumário
@@ -67,7 +67,7 @@ Equipes de TI recebem um grande volume de solicitações repetitivas, perdem pra
 - Abertura em etapas, com sugestão de categoria e prioridade pela IA.
 - Numeração sequencial por empresa (`HD-000001`).
 - Fluxo de status validado no backend: `Aberto → Em triagem → Atribuído → Em andamento → Aguardando usuário → Resolvido → Fechado`, com cancelamento e reabertura.
-- Atribuição a técnicos; quem inicia o atendimento assume o chamado.
+- Atribuição a técnicos: o técnico assume o chamado e o administrador pode atribuí-lo a qualquer técnico.
 - Comentários públicos e **internos** (visíveis apenas para a equipe).
 - Anexos com validação de tamanho, extensão e tipo.
 - Histórico completo de alterações e avaliação do atendimento (1 a 5).
@@ -82,7 +82,7 @@ Equipes de TI recebem um grande volume de solicitações repetitivas, perdem pra
 - **Assistente de TI:** chatbot que responde com base na base de conhecimento, cita as fontes e escala para um chamado quando necessário (`source=CHATBOT`).
 - **Classificação automática** de intenção, categoria e prioridade, sempre validada pelo backend.
 - **AI Copilot** para técnicos: resumir chamado, sugerir solução, encontrar artigos, gerar resposta e analisar histórico. A resposta é editável e nunca é enviada automaticamente.
-- **AI Insights** no dashboard administrativo.
+- **AI Insights** e **Indicadores** de IA: tendências por categoria, gargalos de resolução, conversas resolvidas pelo assistente e avaliações — números calculados a partir dos dados, nunca estimados pelo modelo.
 - Registro de todas as ações de IA e feedback dos usuários (👍/👎).
 
 ### Base de conhecimento
@@ -92,7 +92,8 @@ Equipes de TI recebem um grande volume de solicitações repetitivas, perdem pra
 
 ### Gestão e administração
 - Dashboards específicos para usuário, técnico e administrador.
-- Gestão de usuários, departamentos, categorias, políticas de SLA e configurações de IA.
+- Gestão de usuários (perfis, departamentos, desativação sem perder histórico), departamentos, categorias e políticas de SLA.
+- Dados da empresa e visão da configuração e do uso da IA.
 - Notificações de novos chamados, atribuições, comentários, resoluções e alertas de SLA.
 - Trilha de auditoria de ações sensíveis.
 
@@ -198,14 +199,16 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 
 ### Opção 2: localmente, sem Docker
 
-Requisitos: Python 3.12+, Node.js 20.19+ e um MySQL/MariaDB (ou SQLite para testes rápidos).
+Requisitos: Python 3.12+, Node.js 22.22+ (ou 24.15+) e um servidor MySQL 8.4 (ou MariaDB 10.4+).
+
+Crie o banco `helpdesk` com `utf8mb4`, copie o `.env.example` para `.env` e ajuste a `DATABASE_URL`. Sem Docker, use `VECTOR_STORE_PROVIDER=memory` (o índice da base de conhecimento é refeito a cada inicialização).
 
 **Backend**
 
 ```bash
 cd backend
 python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activatectivate
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt
 alembic upgrade head
 uvicorn app.main:app --reload
@@ -223,7 +226,7 @@ O servidor do Vite encaminha `/api` para o backend (`VITE_PROXY_TARGET`, padrão
 
 ## Dados de demonstração
 
-Para popular o banco com uma empresa de exemplo (usuários, categorias, políticas de SLA e chamados dos últimos 30 dias):
+Para popular o banco com uma empresa de exemplo (usuários, categorias, políticas de SLA, artigos da base de conhecimento e chamados dos últimos 30 dias):
 
 ```bash
 # com Docker
@@ -249,10 +252,13 @@ O comando é idempotente e não roda em produção.
 | `ENVIRONMENT` | backend | `development`, `test` ou `production` |
 | `DATABASE_URL` | backend | URL do banco (sobrescrita automaticamente no Docker) |
 | `JWT_SECRET` | backend | Segredo dos tokens; obrigatório e com 32+ caracteres em produção |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` / `REFRESH_TOKEN_EXPIRE_DAYS` | backend | Validade dos tokens de acesso e de renovação |
+| `RATE_LIMIT_ENABLED` | backend | Limite de tentativas em login, IA e uploads (padrão `true`) |
+| `SLA_MONITOR_INTERVAL_SECONDS` | backend | Intervalo do monitor de alertas de SLA (`0` desliga) |
 | `CORS_ORIGINS` | backend | Origens permitidas, separadas por vírgula |
 | `LOG_LEVEL` | backend | Nível dos logs estruturados (JSON) |
 | `AI_PROVIDER` / `AI_API_KEY` / `AI_MODEL` | backend | Provedor e modelo de LLM |
-| `VECTOR_DB_URL` | backend | Endereço do ChromaDB |
+| `VECTOR_STORE_PROVIDER` / `VECTOR_DB_URL` | backend | Banco vetorial (`chroma` ou `memory`) e endereço do ChromaDB |
 | `UPLOAD_DIR` / `MAX_UPLOAD_SIZE_MB` | backend | Armazenamento e limite de anexos |
 | `MYSQL_ROOT_PASSWORD` / `MYSQL_PASSWORD` | Docker | Senhas do MySQL |
 | `MYSQL_DATABASE` / `MYSQL_USER` / `MYSQL_HOST_PORT` | Docker | Banco, usuário e porta no host |
@@ -283,7 +289,9 @@ A suíte cobre os cenários críticos da plataforma, entre eles:
 - SLA calculado corretamente (no prazo, alerta e vencido);
 - comentários internos ocultos do solicitante;
 - chamado criado pelo chatbot recebe `source=CHATBOT`;
-- tokens adulterados, expirados ou de outra empresa são rejeitados.
+- tokens adulterados, expirados ou de outra empresa são rejeitados;
+- a IA não altera permissões, mesmo diante de prompt injection;
+- tentativas excessivas de login recebem `429`, e trocar a senha encerra as sessões antigas.
 
 ## API
 
@@ -291,13 +299,15 @@ Documentação interativa em `/api/docs`. Todas as rotas usam o prefixo `/api/v1
 
 | Recurso | Endpoints principais |
 |---------|----------------------|
-| Autenticação | `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh`, `GET /auth/me` |
+| Autenticação | `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh`, `GET /auth/me`, `POST /auth/change-password` |
 | Chamados | `GET/POST /tickets`, `GET/PUT /tickets/{id}`, `POST /tickets/{id}/assign`, `/status`, `/resolve`, `/close`, `GET/POST /tickets/{id}/comments`, `GET /tickets/{id}/history` |
-| Categorias | `GET /categories` |
-| Usuários | `GET/POST /users`, `GET/PUT/DELETE /users/{id}` |
-| Chat | `GET/POST /chat/conversations`, `POST /chat/conversations/{id}/messages` |
+| Categorias | `GET/POST /categories`, `PUT/DELETE /categories/{id}`, `GET /categories/manage` |
+| Usuários | `GET/POST /users`, `GET/PUT/DELETE /users/{id}`, `GET /users/technicians` |
+| Administração | `GET/POST /departments`, `GET/POST /sla-policies` (e `PUT/DELETE` por id), `GET/PUT /company`, `GET /audit-logs` |
+| Chat | `GET/POST /chat/conversations`, `POST /chat/conversations/{id}/messages`, `/escalate`, `/resolve`, `POST /chat/messages/{id}/feedback` |
 | Base de conhecimento | `GET/POST /knowledge`, `GET/PUT/DELETE /knowledge/{id}`, `POST /knowledge/upload`, `POST /knowledge/{id}/index` |
-| IA | `POST /ai/classify`, `/ai/summarize`, `/ai/suggest-solution`, `/ai/generate-response` |
+| IA | `POST /ai/classify`, `/ai/summarize`, `/ai/suggest-solution`, `/ai/generate-response`, `/ai/analyze-history`, `/ai/find-articles`, `GET /ai/settings` |
+| Notificações | `GET /notifications`, `GET /notifications/unread-count`, `POST /notifications/{id}/read`, `POST /notifications/read-all` |
 | Dashboard | `GET /dashboard/metrics`, `/dashboard/tickets`, `/dashboard/sla`, `/dashboard/ai` |
 | Sistema | `GET /health` |
 
@@ -323,12 +333,14 @@ Pergunta → Embedding → Busca vetorial (filtrada por empresa) → Trechos rel
 
 ## Segurança
 
-- Senhas com Argon2id; tokens JWT de acesso (curto) e renovação, com verificação de tipo.
+- Senhas com Argon2id; tokens JWT de acesso (curto) e renovação, com verificação de tipo. Trocar ou redefinir a senha invalida os tokens emitidos antes.
 - Autorização por perfil e isolamento multiempresa validados no backend.
-- Mensagens de login genéricas, sem enumeração de contas.
+- Mensagens de login genéricas, sem enumeração de contas, e limite de tentativas (`429` com `Retry-After`) em login, cadastro, IA e uploads.
+- Cabeçalhos de segurança em todas as respostas (CSP, `nosniff`, bloqueio de frames, `no-store` nas rotas de autenticação; HSTS em produção).
+- Anexos validados pela assinatura do arquivo, com limite de tamanho aplicado durante o envio e download autenticado.
 - Validação de entrada com Pydantic, sem eco de dados sensíveis nos erros.
 - Logs estruturados com request id, sem senhas, tokens ou chaves.
-- Auditoria de login, criação de usuários e alterações em chamados.
+- Auditoria de login, gestão de usuários e perfis, configurações e alterações em chamados.
 - Documentação da API desabilitada em produção.
 
 ## Autor

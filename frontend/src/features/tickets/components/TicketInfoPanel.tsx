@@ -75,15 +75,16 @@ function ClockRow({ label, clock }: { label: string; clock: SLAClock }) {
   }
 
   return (
-    <div className="space-y-0.5">
-      <div className="flex items-start justify-between gap-3">
-        <dt className="text-secondary">{label}</dt>
-        <dd className="text-right font-medium text-text">{detail}</dd>
-      </div>
-      <p className="text-xs text-secondary">
-        Prazo: <time dateTime={clock.deadline}>{formatDateTime(clock.deadline)}</time>
-        {clock.status && !clock.completed_at ? ` · ${SLA_LABELS[clock.status]}` : ''}
-      </p>
+    // Um único nível de <div> entre <dl> e dt/dd (exigência do HTML para listas de definição).
+    <div className="flex items-start justify-between gap-3">
+      <dt className="text-secondary">{label}</dt>
+      <dd className="text-right">
+        <span className="block font-medium text-text">{detail}</span>
+        <span className="block text-xs text-secondary">
+          Prazo: <time dateTime={clock.deadline}>{formatDateTime(clock.deadline)}</time>
+          {clock.status && !clock.completed_at ? ` · ${SLA_LABELS[clock.status]}` : ''}
+        </span>
+      </dd>
     </div>
   )
 }

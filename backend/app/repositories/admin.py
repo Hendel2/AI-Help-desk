@@ -19,6 +19,8 @@ from app.models import (
     User,
 )
 from app.models.enums import AIFeedbackRating, AuditAction, RoleName
+from app.repositories.ticket import ACTIVE_STATUSES
+from app.repositories.user import UserRepository
 
 
 class AdminRepository:
@@ -73,14 +75,23 @@ class AdminRepository:
         )
         return self.session.scalar(stmt) or 0
 
+    def count_active_assigned(self, company_id: int, technician_id: int) -> int:
+        """Chamados ainda em aberto atribuídos ao técnico."""
+        stmt = (
+            select(func.count())
+            .select_from(Ticket)
+            .where(
+                Ticket.company_id == company_id,
+                Ticket.technician_id == technician_id,
+                Ticket.status.in_(ACTIVE_STATUSES),
+            )
+        )
+        return self.session.scalar(stmt) or 0
+
     def list_technicians(self, company_id: int) -> Sequence[User]:
-        return self.session.scalars(
-            select(User)
-            .join(Role)
-            .where(User.company_id == company_id, User.is_active.is_(True))
-            .where(Role.name.in_([RoleName.TECHNICIAN, RoleName.ADMIN]))
-            .order_by(User.name)
-        ).all()
+        return UserRepository(self.session).active_with_roles(
+            company_id, (RoleName.TECHNICIAN, RoleName.ADMIN)
+        )
 
     # --- Departamentos, categorias e SLA ---------------------------------------
 

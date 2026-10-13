@@ -1,14 +1,19 @@
 """Segurança da API (§60): limite de requisições e cabeçalhos de segurança."""
 
 from collections.abc import Callable
+from datetime import timedelta
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
+from app.core import security
+from app.core.config import Settings
 from app.core.exceptions import TooManyRequestsError
 from app.core.rate_limit import AI, LOGIN, RateLimiter, Rule
 from app.models import Company, User
 from app.models.enums import RoleName
+from app.services.auth import AuthService
 
 
 @pytest.fixture
@@ -81,10 +86,32 @@ def test_security_headers(client: TestClient) -> None:
     assert auth.headers["Cache-Control"] == "no-store"
 
 
-def test_change_password_requires_current_and_is_audited(
-    client: TestClient, user: User, auth_headers: Callable[[User], dict[str, str]]
+def _old_session(
+    monkeypatch: pytest.MonkeyPatch,
+    settings: Settings,
+    db_session: Session,
+    user: User,
+) -> dict[str, str]:
+    """Tokens emitidos 10 s atrás (antes de qualquer troca de senha no teste)."""
+    real_now = security.utcnow()
+    monkeypatch.setattr(security, "utcnow", lambda: real_now - timedelta(seconds=10))
+    tokens = AuthService(db_session, settings).issue_tokens(user)
+    monkeypatch.undo()
+    return {
+        "Authorization": f"Bearer {tokens.access_token}",
+        "refresh": tokens.refresh_token,
+    }
+
+
+def test_change_password_requires_current_and_ends_other_sessions(
+    client: TestClient,
+    user: User,
+    monkeypatch: pytest.MonkeyPatch,
+    settings: Settings,
+    db_session: Session,
 ) -> None:
-    headers = auth_headers(user)
+    old = _old_session(monkeypatch, settings, db_session, user)
+    headers = {"Authorization": old["Authorization"]}
     url = "/api/v1/auth/change-password"
 
     wrong = client.post(
@@ -97,8 +124,40 @@ def test_change_password_requires_current_and_is_audited(
         json={"current_password": "password123", "new_password": "nova-senha-1"},
         headers=headers,
     )
-    assert ok.status_code == 204
+    assert ok.status_code == 200
+    fresh = {"Authorization": f"Bearer {ok.json()['access_token']}"}
+
+    # A sessão que trocou a senha segue com os tokens novos; os antigos caem.
+    assert client.get("/api/v1/auth/me", headers=fresh).status_code == 200
+    stale = client.get("/api/v1/auth/me", headers=headers)
+    assert (stale.status_code, stale.json()["error"]["code"]) == (401, "INVALID_TOKEN")
+    refresh = client.post("/api/v1/auth/refresh", json={"refresh_token": old["refresh"]})
+    assert refresh.status_code == 401
     login = client.post(
         "/api/v1/auth/login", json={"email": user.email, "password": "nova-senha-1"}
     )
     assert login.status_code == 200
+
+
+def test_admin_password_reset_ends_user_sessions(
+    client: TestClient,
+    user: User,
+    make_user: Callable[..., User],
+    auth_headers: Callable[[User], dict[str, str]],
+    monkeypatch: pytest.MonkeyPatch,
+    settings: Settings,
+    db_session: Session,
+) -> None:
+    admin = make_user(user.company, role=RoleName.ADMIN, name="Alice")
+    db_session.commit()
+    old = _old_session(monkeypatch, settings, db_session, user)
+
+    reset = client.put(
+        f"/api/v1/users/{user.id}",
+        json={"password": "redefinida-1"},
+        headers=auth_headers(admin),
+    )
+
+    assert reset.status_code == 200
+    stale = client.get("/api/v1/auth/me", headers={"Authorization": old["Authorization"]})
+    assert stale.status_code == 401

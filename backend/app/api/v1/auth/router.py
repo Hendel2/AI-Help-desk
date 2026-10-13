@@ -1,6 +1,6 @@
 """Rotas de autenticação: cadastro, login, renovação, usuário atual e troca de senha."""
 
-from fastapi import APIRouter, Response, status
+from fastapi import APIRouter, status
 
 from app.api.deps import AuthServiceDep, ClientIpDep, CurrentUser
 from app.core.rate_limit import LOGIN, REFRESH, REGISTER, RateLimiterDep
@@ -82,8 +82,8 @@ def me(user: CurrentUser) -> CurrentUserResponse:
 
 @router.post(
     "/change-password",
-    status_code=status.HTTP_204_NO_CONTENT,
-    summary="Troca a própria senha (exige a senha atual)",
+    response_model=TokenResponse,
+    summary="Troca a própria senha (exige a senha atual) e encerra as outras sessões",
     responses={400: {"model": ErrorResponse, "description": "Senha atual incorreta"}},
 )
 def change_password(
@@ -92,8 +92,7 @@ def change_password(
     auth: AuthServiceDep,
     ip: ClientIpDep,
     limiter: RateLimiterDep,
-) -> Response:
+) -> TokenResponse:
     # Mesma regra do login: a senha atual não pode ser descoberta por tentativa.
     limiter.check(LOGIN, f"change-password:user:{user.id}")
-    auth.change_password(user, data.current_password, data.new_password, ip_address=ip)
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+    return auth.change_password(user, data.current_password, data.new_password, ip_address=ip)

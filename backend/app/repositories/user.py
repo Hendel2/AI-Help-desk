@@ -1,5 +1,7 @@
 """Repositórios de usuários, perfis e empresas."""
 
+from collections.abc import Iterable, Sequence
+
 from sqlalchemy import func, select
 from sqlalchemy.orm import joinedload
 
@@ -35,6 +37,16 @@ class UserRepository(CompanyScopedRepository[User]):
         )
         return self.session.scalars(stmt).one_or_none()
 
+    def active_with_roles(self, company_id: int, roles: Iterable[RoleName]) -> Sequence[User]:
+        """Usuários ativos da empresa com um dos perfis, em ordem alfabética."""
+        stmt = (
+            self._scoped_select(company_id)
+            .join(Role, Role.id == User.role_id)
+            .where(User.is_active.is_(True), Role.name.in_(tuple(roles)))
+            .order_by(User.name, User.id)
+        )
+        return self.session.scalars(stmt).all()
+
 
 class RoleRepository(BaseRepository[Role]):
     model = Role
@@ -45,3 +57,8 @@ class RoleRepository(BaseRepository[Role]):
 
 class CompanyRepository(BaseRepository[Company]):
     model = Company
+
+    def cnpj_taken(self, cnpj: str, *, exclude_id: int) -> bool:
+        """CNPJ é único na plataforma (consulta global, sem dados da outra empresa)."""
+        stmt = select(Company.id).where(Company.cnpj == cnpj, Company.id != exclude_id)
+        return self.session.scalars(stmt).first() is not None

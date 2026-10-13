@@ -24,15 +24,14 @@ import {
 import type { AdminCategory, SLAPolicy } from '@/features/admin/types'
 import { PriorityBadge } from '@/features/tickets/components/TicketBadges'
 import { PRIORITY_LABELS } from '@/features/tickets/labels'
-import type { TicketPriority } from '@/features/tickets/types'
+import { TICKET_PRIORITIES } from '@/features/tickets/types'
 import { getErrorMessage } from '@/services/api/errors'
 
-const PRIORITIES = Object.keys(PRIORITY_LABELS) as TicketPriority[]
 
 const schema = z.object({
   name: z.string().trim().min(2, 'Informe o nome.').max(100, 'Máximo de 100 caracteres.'),
   description: z.string().trim().max(255, 'Máximo de 255 caracteres.'),
-  default_priority: z.enum(PRIORITIES as [TicketPriority, ...TicketPriority[]]),
+  default_priority: z.enum(TICKET_PRIORITIES),
   default_sla_policy_id: z.string(),
   is_active: z.boolean(),
 })
@@ -248,7 +247,7 @@ function CategoryForm({
         />
         <Select
           label="Prioridade padrão"
-          options={PRIORITIES.map((value) => ({ value, label: PRIORITY_LABELS[value] }))}
+          options={TICKET_PRIORITIES.map((value) => ({ value, label: PRIORITY_LABELS[value] }))}
           {...register('default_priority')}
         />
         <Select

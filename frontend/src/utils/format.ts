@@ -57,3 +57,8 @@ export function formatMinutes(totalMinutes: number): string {
   const rest = minutes % 60
   return rest ? `${hours}h ${rest}min` : `${hours}h`
 }
+
+/** Percentual arredondado no formato brasileiro: 91.7 → "92%". Recebe 0–100. */
+export function formatPercent(pct: number): string {
+  return `${Math.round(pct).toLocaleString('pt-BR')}%`
+}

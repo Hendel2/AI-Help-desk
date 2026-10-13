@@ -6,7 +6,7 @@ import { useNavigate, useSearchParams } from 'react-router'
 import { ErrorState } from '@/components/ErrorState'
 import { Button } from '@/components/ui/Button'
 import { SkeletonText } from '@/components/ui/Skeleton'
-import { cx, FIELD_BASE, FOCUS_RING } from '@/components/ui/styles'
+import { cx, FIELD_BASE, FOCUS_RING, SECONDARY_ON_TINT } from '@/components/ui/styles'
 import { useToast } from '@/components/ui/useToast'
 import { useAuth } from '@/features/auth/useAuth'
 import { ChatMessage } from '@/features/chat/components/ChatMessage'
@@ -121,7 +121,7 @@ export function ChatPage() {
                   aria-current={item.id === conversationId ? 'true' : undefined}
                   onClick={() => setSearchParams({ conversa: String(item.id) })}
                   className={cx(
-                    'w-full rounded-md px-3 py-2 text-left transition-colors',
+                    'group w-full rounded-md px-3 py-2 text-left transition-colors',
                     item.id === conversationId ? 'bg-primary-soft' : 'hover:bg-surface-hover',
                     FOCUS_RING,
                   )}
@@ -129,7 +129,13 @@ export function ChatPage() {
                   <span className="block truncate text-sm text-text">
                     {item.title ?? 'Nova conversa'}
                   </span>
-                  <span className="block text-xs text-secondary">
+                  <span
+                    className={cx(
+                      'block text-xs',
+                      // Sobre Primary Soft o Secondary não atinge 4,5:1.
+                      item.id === conversationId ? 'text-text' : SECONDARY_ON_TINT,
+                    )}
+                  >
                     {STATUS_LABELS[item.status]} · {formatRelative(item.updated_at)}
                   </span>
                 </button>

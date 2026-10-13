@@ -42,7 +42,7 @@ export function TicketTable({ tickets, showRequester = false }: TicketTableProps
           </thead>
           <tbody className="divide-y divide-border">
             {tickets.map((ticket) => (
-              <tr key={ticket.id} className="transition-colors hover:bg-surface-hover">
+              <tr key={ticket.id} className="transition-colors hover:bg-background">
                 <td className="max-w-md px-4 py-3">
                   <span className="block text-xs text-secondary tabular-nums">
                     {ticket.ticket_number}

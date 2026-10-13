@@ -33,17 +33,12 @@ import {
   useDashboardSLA,
   useDashboardTickets,
 } from '@/features/dashboard/hooks/useDashboard'
+import { PERIOD_OPTIONS } from '@/features/dashboard/periods'
 import type { DashboardMetrics, DashboardTickets } from '@/features/dashboard/types'
 import { PRIORITY_LABELS } from '@/features/tickets/labels'
 import type { TicketPriority } from '@/features/tickets/types'
 import { getErrorMessage } from '@/services/api/errors'
-import { formatMinutes } from '@/utils/format'
-
-const PERIODS = [
-  { value: '7', label: 'Últimos 7 dias' },
-  { value: '30', label: 'Últimos 30 dias' },
-  { value: '90', label: 'Últimos 90 dias' },
-]
+import { formatMinutes, formatPercent } from '@/utils/format'
 
 const SUBTITLES = {
   USER: 'Acompanhe seus chamados.',
@@ -81,7 +76,7 @@ export function DashboardPage() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <Select
             label="Período"
-            options={PERIODS}
+            options={PERIOD_OPTIONS}
             value={String(days)}
             onChange={(event) => setDays(Number(event.target.value))}
             containerClassName="sm:w-44"
@@ -112,7 +107,7 @@ export function DashboardPage() {
       ) : null}
 
       {user.role === 'TECHNICIAN' ? (
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <Panel title="Chamados em aberto por prioridade" query={tickets}>
             {(data) => (
               <BarList
@@ -136,7 +131,7 @@ export function DashboardPage() {
       ) : null}
 
       {isAdmin ? (
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <AIInsightsCard query={ai} className="lg:col-span-2" />
           <Panel title="Volume de chamados" query={tickets} className="lg:col-span-2">
             {(data) => (
@@ -174,7 +169,7 @@ export function DashboardPage() {
               <ColumnChart
                 valueLabel="Resolvidos dentro do prazo (%)"
                 maxValue={100}
-                formatValue={(value) => `${Math.round(value)}%`}
+                formatValue={formatPercent}
                 data={sla.data.weeks.map((week) => {
                   const { short, full } = shortDate(week.week_start)
                   return {
@@ -291,7 +286,7 @@ function Tiles({
         label="Cumprimento de SLA"
         value={
           metrics?.sla_compliance_pct != null
-            ? `${Math.round(metrics.sla_compliance_pct)}%`
+            ? formatPercent(metrics.sla_compliance_pct)
             : loading
               ? null
               : '—'

@@ -22,11 +22,11 @@ import {
 } from '@/features/admin/hooks/useAdmin'
 import type { SLAPolicy } from '@/features/admin/types'
 import { PRIORITY_LABELS } from '@/features/tickets/labels'
+import { TICKET_PRIORITIES } from '@/features/tickets/types'
 import type { TicketPriority } from '@/features/tickets/types'
 import { getErrorMessage } from '@/services/api/errors'
 import { formatMinutes } from '@/utils/format'
 
-const PRIORITIES = Object.keys(PRIORITY_LABELS) as TicketPriority[]
 const MAX_MINUTES = 60 * 24 * 365
 
 const minutes = z.coerce
@@ -245,7 +245,7 @@ function PolicyForm({ policy, onClose }: { policy: SLAPolicy | null; onClose: ()
           label="Prioridade"
           placeholder="Nenhuma (usar só via categoria)"
           hint="Com prioridade, vira o padrão para chamados dessa prioridade."
-          options={PRIORITIES.map((value) => ({ value, label: PRIORITY_LABELS[value] }))}
+          options={TICKET_PRIORITIES.map((value) => ({ value, label: PRIORITY_LABELS[value] }))}
           {...register('priority')}
         />
         <div className="grid gap-4 sm:grid-cols-2">

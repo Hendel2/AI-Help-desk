@@ -22,7 +22,9 @@ from app.core.security import (
     create_token,
     decode_token,
     hash_password,
+    issued_before_password_change,
     needs_rehash,
+    password_change_timestamp,
     verify_password,
 )
 from app.models import Company, User
@@ -88,6 +90,11 @@ class AuthService:
             )
         if not user.is_active:
             raise ForbiddenError("Esta conta está desativada.", code="ACCOUNT_INACTIVE")
+        if issued_before_password_change(payload.iat, user.password_changed_at):
+            # Senha trocada/redefinida depois da emissão: a sessão antiga é encerrada.
+            raise UnauthorizedError(
+                "Sua senha foi alterada. Entre novamente.", code="INVALID_TOKEN"
+            )
         return user
 
     # --- Casos de uso -------------------------------------------------------
@@ -135,7 +142,8 @@ class AuthService:
         new_password: str,
         *,
         ip_address: str | None = None,
-    ) -> None:
+    ) -> TokenResponse:
+        """Troca a senha e encerra as outras sessões; devolve tokens novos para esta."""
         if not verify_password(current_password, user.password_hash):
             raise BadRequestError("A senha atual está incorreta.", code="INVALID_PASSWORD")
         if verify_password(new_password, user.password_hash):
@@ -143,6 +151,7 @@ class AuthService:
                 "A nova senha precisa ser diferente da atual.", code="PASSWORD_UNCHANGED"
             )
         user.password_hash = hash_password(new_password)
+        user.password_changed_at = password_change_timestamp()
         self.audit.record(
             action=AuditAction.USER_UPDATED,
             entity="user",
@@ -152,7 +161,9 @@ class AuthService:
             metadata={"fields": ["password"], "self_service": True},
             ip_address=ip_address,
         )
+        tokens = self.issue_tokens(user)
         self.session.commit()
+        return tokens
 
     def register(
         self, data: RegisterRequest, *, ip_address: str | None = None

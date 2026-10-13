@@ -15,7 +15,7 @@ import { EmptyState } from '@/components/EmptyState'
 import { ErrorState } from '@/components/ErrorState'
 import { Button } from '@/components/ui/Button'
 import { SkeletonText } from '@/components/ui/Skeleton'
-import { cx, FOCUS_RING } from '@/components/ui/styles'
+import { cx, FOCUS_RING, SECONDARY_ON_TINT } from '@/components/ui/styles'
 import { formatRelative } from '@/utils/format'
 
 import {
@@ -154,7 +154,7 @@ function NotificationPanel({ id, hasUnread, onNavigate }: NotificationPanelProps
                     type="button"
                     onClick={() => open(notification)}
                     className={cx(
-                      'flex w-full gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-hover focus-visible:bg-surface-hover focus-visible:outline-none',
+                      'group flex w-full gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-hover focus-visible:bg-surface-hover focus-visible:outline-none',
                       !notification.is_read && 'bg-primary-soft/60',
                     )}
                   >
@@ -164,8 +164,13 @@ function NotificationPanel({ id, hasUnread, onNavigate }: NotificationPanelProps
                         {notification.title}
                         {!notification.is_read ? <span className="sr-only"> (não lida)</span> : null}
                       </span>
-                      <span className="block truncate text-sm text-secondary">{notification.message}</span>
-                      <time dateTime={notification.created_at} className="text-xs text-secondary">
+                      <span className={cx('block truncate text-sm', SECONDARY_ON_TINT)}>
+                        {notification.message}
+                      </span>
+                      <time
+                        dateTime={notification.created_at}
+                        className={cx('text-xs', SECONDARY_ON_TINT)}
+                      >
                         {formatRelative(notification.created_at)}
                       </time>
                     </span>

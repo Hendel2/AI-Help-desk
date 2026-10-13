@@ -105,3 +105,17 @@ def decode_token(token: str, *, secret: str, expected_type: TokenType) -> TokenP
         # Um refresh token não pode ser usado como access token (e vice-versa).
         raise InvalidTokenError(f"esperado token de tipo {expected_type}")
     return payload
+
+
+def password_change_timestamp() -> datetime:
+    """Instante da troca de senha, truncado ao segundo.
+
+    O `iat` do JWT tem resolução de segundos: com o mesmo truncamento, um token
+    emitido logo após a troca (no mesmo segundo) continua válido, e qualquer
+    token de um segundo anterior é recusado.
+    """
+    return utcnow().replace(microsecond=0)
+
+
+def issued_before_password_change(iat: datetime, password_changed_at: datetime | None) -> bool:
+    return password_changed_at is not None and iat < password_changed_at

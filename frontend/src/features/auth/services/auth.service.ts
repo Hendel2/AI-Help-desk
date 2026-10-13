@@ -18,12 +18,16 @@ export function refreshSession(refreshToken: string): Promise<TokenResponse> {
   return post<TokenResponse>('/auth/refresh', { refresh_token: refreshToken })
 }
 
-/** Troca a própria senha. Senha atual errada → 400 (não encerra a sessão). */
-export function changePassword(currentPassword: string, newPassword: string): Promise<void> {
-  return post<void>('/auth/change-password', {
+/**
+ * Troca a própria senha. O backend encerra as outras sessões e devolve tokens
+ * novos para esta. Senha atual errada → 400 (a sessão continua).
+ */
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  const tokens = await post<TokenResponse>('/auth/change-password', {
     current_password: currentPassword,
     new_password: newPassword,
   })
+  saveTokens(tokens)
 }
 
 export function getMe(signal?: AbortSignal): Promise<CurrentUser> {

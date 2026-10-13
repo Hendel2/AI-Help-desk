@@ -22,5 +22,13 @@ export default defineConfig([
         tsconfigRootDir: import.meta.dirname,
       },
     },
+    rules: {
+      // Áreas roláveis sem nada focável dentro (ex.: tabela larga) precisam de
+      // tabIndex=0 para rolar pelo teclado — padrão recomendado: role="region" + nome.
+      'jsx-a11y/no-noninteractive-tabindex': [
+        'error',
+        { tags: [], roles: ['tabpanel', 'region'], allowExpressionValues: true },
+      ],
+    },
   },
 ])

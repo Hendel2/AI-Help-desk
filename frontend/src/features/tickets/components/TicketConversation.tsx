@@ -93,7 +93,7 @@ export function TicketConversation({
       ) : null}
 
       {isClosed ? (
-        <p className="rounded-md border border-border bg-surface-hover px-4 py-3 text-sm text-secondary">
+        <p className="rounded-md border border-border bg-surface-hover px-4 py-3 text-sm text-text">
           Este chamado está encerrado e não aceita novas mensagens.
         </p>
       ) : (

@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 import sqlalchemy as sa
@@ -5,6 +6,7 @@ from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, CompanyScopedMixin, TimestampMixin
+from app.models.types import UTCDateTime
 
 if TYPE_CHECKING:
     from app.models.company import Company
@@ -25,6 +27,8 @@ class User(CompanyScopedMixin, TimestampMixin, Base):
     password_hash: Mapped[str] = mapped_column(String(255))
     avatar: Mapped[str | None] = mapped_column(String(500))
     is_active: Mapped[bool] = mapped_column(default=True, server_default=sa.true())
+    # Tokens emitidos antes deste instante são recusados (troca/redefinição de senha).
+    password_changed_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
 
     company: Mapped["Company"] = relationship()
     role: Mapped["Role"] = relationship()

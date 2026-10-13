@@ -19,7 +19,7 @@ interface ChatMessageProps {
 export function ChatMessage({ message, userName }: ChatMessageProps) {
   if (message.role === 'SYSTEM') {
     return (
-      <p className="mx-auto max-w-md rounded-md bg-surface-hover px-3 py-2 text-center text-sm text-secondary">
+      <p className="mx-auto max-w-md rounded-md bg-surface-hover px-3 py-2 text-center text-sm text-text">
         {message.content}
       </p>
     )

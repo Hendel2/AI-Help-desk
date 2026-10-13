@@ -5,7 +5,7 @@ from collections.abc import Sequence
 from datetime import datetime
 
 from sqlalchemy import ColumnElement, Select, func, or_, select
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import Session, joinedload
 
 from app.models import Category, SLAPolicy, Ticket, TicketComment, TicketHistory
 from app.models.enums import TicketPriority, TicketStatus
@@ -19,6 +19,16 @@ _TICKET_NUMBER_RE = re.compile(rf"^{TICKET_NUMBER_PREFIX}(\d+)$")
 def format_ticket_number(sequence: int) -> str:
     """1 -> "HD-000001" (§14)."""
     return f"{TICKET_NUMBER_PREFIX}{sequence:0{TICKET_NUMBER_DIGITS}d}"
+
+
+#: Status em que o chamado ainda está em aberto (antes de Resolvido).
+ACTIVE_STATUSES = (
+    TicketStatus.OPEN,
+    TicketStatus.TRIAGE,
+    TicketStatus.ASSIGNED,
+    TicketStatus.IN_PROGRESS,
+    TicketStatus.WAITING_USER,
+)
 
 
 class TicketFilters:
@@ -125,6 +135,18 @@ class TicketRepository(CompanyScopedRepository[Ticket]):
         )
         return self.session.scalar(stmt) or 0
 
+    def active_for_requester(
+        self, company_id: int, requester_id: int, *, limit: int
+    ) -> Sequence[Ticket]:
+        """Chamados em aberto do solicitante, mais recentes primeiro (status no chatbot)."""
+        stmt = (
+            self._scoped_select(company_id)
+            .where(Ticket.user_id == requester_id, Ticket.status.in_(ACTIVE_STATUSES))
+            .order_by(Ticket.created_at.desc())
+            .limit(limit)
+        )
+        return self.session.scalars(stmt).all()
+
     def next_ticket_number(self, company_id: int) -> str:
         """Próximo número da empresa. A unicidade real é garantida pelo índice
         `uq_tickets_company_id_ticket_number`; o serviço repete em caso de colisão."""
@@ -144,8 +166,8 @@ class TicketRepository(CompanyScopedRepository[Ticket]):
 class TicketCommentRepository:
     """Comentários. O escopo de empresa é garantido pelo chamado dono."""
 
-    def __init__(self, session: object) -> None:
-        self.session = session  # type: ignore[assignment]
+    def __init__(self, session: Session) -> None:
+        self.session = session
 
     def list_for_ticket(self, ticket_id: int, *, include_internal: bool) -> Sequence[TicketComment]:
         stmt = (
@@ -156,11 +178,11 @@ class TicketCommentRepository:
         )
         if not include_internal:
             stmt = stmt.where(TicketComment.is_internal.is_(False))
-        return self.session.scalars(stmt).unique().all()  # type: ignore[attr-defined]
+        return self.session.scalars(stmt).unique().all()
 
     def add(self, comment: TicketComment) -> TicketComment:
-        self.session.add(comment)  # type: ignore[attr-defined]
-        self.session.flush()  # type: ignore[attr-defined]
+        self.session.add(comment)
+        self.session.flush()
         return comment
 
     def has_public_staff_comment(self, ticket_id: int, *, requester_id: int) -> bool:
@@ -174,7 +196,7 @@ class TicketCommentRepository:
             )
             .limit(1)
         )
-        return self.session.scalars(stmt).first() is not None  # type: ignore[attr-defined]
+        return self.session.scalars(stmt).first() is not None
 
 
 INTERNAL_COMMENT_FIELD = "internal_comment"
@@ -186,8 +208,8 @@ def hide_internal_history() -> ColumnElement[bool]:
 
 
 class TicketHistoryRepository:
-    def __init__(self, session: object) -> None:
-        self.session = session  # type: ignore[assignment]
+    def __init__(self, session: Session) -> None:
+        self.session = session
 
     def list_for_ticket(
         self, ticket_id: int, *, include_internal: bool = True
@@ -200,11 +222,11 @@ class TicketHistoryRepository:
         )
         if not include_internal:
             stmt = stmt.where(hide_internal_history())
-        return self.session.scalars(stmt).unique().all()  # type: ignore[attr-defined]
+        return self.session.scalars(stmt).unique().all()
 
     def add(self, entry: TicketHistory) -> TicketHistory:
-        self.session.add(entry)  # type: ignore[attr-defined]
-        self.session.flush()  # type: ignore[attr-defined]
+        self.session.add(entry)
+        self.session.flush()
         return entry
 
 

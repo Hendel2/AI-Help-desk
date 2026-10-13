@@ -56,3 +56,15 @@ class Page[T](BaseModel):
             page_size=params.page_size,
             pages=math.ceil(total / params.page_size) if total else 0,
         )
+
+
+def normalize_cnpj(value: object) -> object:
+    """Aceita CNPJ com ou sem máscara; guarda só os 14 dígitos (vazio → None)."""
+    if not isinstance(value, str):
+        return value
+    digits = "".join(filter(str.isdigit, value))
+    if not digits:
+        return None
+    if len(digits) != 14:
+        raise ValueError("CNPJ deve conter 14 dígitos")
+    return digits

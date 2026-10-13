@@ -2,12 +2,14 @@
 
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.cli.seed_demo import DEMO_COMPANY, seed
-from app.models import Company, Ticket, TicketHistory, User
+from app.models import Company, KnowledgeArticle, KnowledgeChunk, Ticket, TicketHistory, User
 from app.models.enums import RoleName, TicketStatus
+from app.services.ai.embeddings import HashingEmbedder
+from app.services.ai.rag import RAGService
 from app.services.ai.vector_store import InMemoryVectorStore
 
 
@@ -89,3 +91,20 @@ def test_seed_creates_searchable_knowledge(
 
     assert listing["total"] == 8
     assert suggestions[0]["title"] == "Falha de autenticação na VPN"
+
+
+def test_seed_completes_knowledge_missing_from_an_older_demo(
+    db_session: Session, seed_roles: dict[RoleName, Any]
+) -> None:
+    store = InMemoryVectorStore()
+    assert seed(db_session, store=store)
+    # Simula um banco populado antes de existir a base de conhecimento.
+    db_session.execute(delete(KnowledgeChunk))
+    db_session.execute(delete(KnowledgeArticle))
+    db_session.commit()
+
+    assert seed(db_session, store=store) is True
+    company = db_session.scalars(select(Company).where(Company.name == DEMO_COMPANY)).one()
+    rag = RAGService(db_session, store, HashingEmbedder())
+    assert rag.search(company.id, "VPN não conecta, falha de autenticação")
+    assert seed(db_session, store=store) is False  # agora está completa

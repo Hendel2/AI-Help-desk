@@ -9,15 +9,14 @@ import logging
 from collections.abc import Iterable, Sequence
 from datetime import datetime
 
-from sqlalchemy import func, select, update
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 from app.core.exceptions import NotFoundError
-from app.models import Notification, Role, Ticket, User
+from app.models import Notification, Ticket, User
 from app.models.enums import NotificationType, RoleName, SLAStatus
 from app.models.types import utcnow
-from app.repositories.base import _require_company_id
-from app.repositories.dashboard import ACTIVE_STATUSES
+from app.repositories.notification import NotificationRepository
+from app.repositories.user import UserRepository
 from app.services import sla
 
 logger = logging.getLogger("app.notifications")
@@ -28,20 +27,13 @@ STAFF = (RoleName.TECHNICIAN, RoleName.ADMIN)
 class NotificationService:
     def __init__(self, session: Session) -> None:
         self.session = session
+        self.repo = NotificationRepository(session)
+        self.users = UserRepository(session)
 
     # --- Envio --------------------------------------------------------------
 
     def _staff(self, company_id: int, roles: Iterable[RoleName] = STAFF) -> Sequence[User]:
-        stmt = (
-            select(User)
-            .join(Role, Role.id == User.role_id)
-            .where(
-                User.company_id == _require_company_id(company_id),
-                User.is_active.is_(True),
-                Role.name.in_(tuple(roles)),
-            )
-        )
-        return self.session.scalars(stmt).all()
+        return self.users.active_with_roles(company_id, roles)
 
     def _send(
         self,
@@ -142,18 +134,7 @@ class NotificationService:
         enviado apenas a pessoas da empresa do próprio chamado.
         """
         now = now or utcnow()
-        tickets = (
-            self.session.scalars(
-                select(Ticket)
-                .where(
-                    Ticket.status.in_(ACTIVE_STATUSES),
-                    Ticket.response_deadline.is_not(None) | Ticket.resolution_deadline.is_not(None),
-                )
-                .options(joinedload(Ticket.technician))
-            )
-            .unique()
-            .all()
-        )
+        tickets = self.repo.tickets_with_open_deadlines()
 
         created = 0
         for ticket in tickets:
@@ -190,56 +171,23 @@ class NotificationService:
         return created
 
     def _already_alerted(self, ticket_id: int, type_: NotificationType) -> bool:
-        stmt = select(Notification.id).where(
-            Notification.ticket_id == ticket_id, Notification.type == type_
-        )
-        return self.session.scalars(stmt.limit(1)).first() is not None
+        return self.repo.exists_for_ticket(ticket_id, type_)
 
     # --- Caixa de entrada do usuário ---------------------------------------
 
     def list_for(
         self, user: User, *, unread_only: bool, offset: int, limit: int
     ) -> tuple[Sequence[Notification], int]:
-        conditions = [
-            Notification.company_id == _require_company_id(user.company_id),
-            Notification.user_id == user.id,
-        ]
-        if unread_only:
-            conditions.append(Notification.is_read.is_(False))
-        items = self.session.scalars(
-            select(Notification)
-            .where(*conditions)
-            .order_by(Notification.created_at.desc(), Notification.id.desc())
-            .offset(offset)
-            .limit(limit)
-        ).all()
-        total = self.session.scalar(
-            select(func.count()).select_from(Notification).where(*conditions)
+        return self.repo.list_for_user(
+            user.company_id, user.id, unread_only=unread_only, offset=offset, limit=limit
         )
-        return items, total or 0
 
     def unread_count(self, user: User) -> int:
-        return (
-            self.session.scalar(
-                select(func.count())
-                .select_from(Notification)
-                .where(
-                    Notification.company_id == user.company_id,
-                    Notification.user_id == user.id,
-                    Notification.is_read.is_(False),
-                )
-            )
-            or 0
-        )
+        return self.repo.unread_count(user.company_id, user.id)
 
     def mark_read(self, user: User, notification_id: int) -> Notification:
-        notification = self.session.scalars(
-            select(Notification).where(
-                Notification.id == notification_id,
-                Notification.company_id == user.company_id,
-                Notification.user_id == user.id,  # só o destinatário
-            )
-        ).one_or_none()
+        # Só o destinatário (empresa + usuário); qualquer outro → 404.
+        notification = self.repo.get_for_user(user.company_id, user.id, notification_id)
         if notification is None:
             raise NotFoundError("Notificação não encontrada.", code="NOTIFICATION_NOT_FOUND")
         if not notification.is_read:
@@ -249,14 +197,6 @@ class NotificationService:
         return notification
 
     def mark_all_read(self, user: User) -> int:
-        result = self.session.execute(
-            update(Notification)
-            .where(
-                Notification.company_id == user.company_id,
-                Notification.user_id == user.id,
-                Notification.is_read.is_(False),
-            )
-            .values(is_read=True, read_at=utcnow())
-        )
+        updated = self.repo.mark_all_read(user.company_id, user.id, now=utcnow())
         self.session.commit()
-        return result.rowcount or 0  # type: ignore[attr-defined]
+        return updated

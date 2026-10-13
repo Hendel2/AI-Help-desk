@@ -79,7 +79,3 @@ def get_rate_limiter(request: Request) -> RateLimiter:
 
 
 RateLimiterDep = Annotated[RateLimiter, Depends(get_rate_limiter)]
-
-
-def client_key(request: Request) -> str:
-    return request.client.host if request.client else "unknown"

@@ -6,12 +6,12 @@ from collections.abc import Sequence
 from pathlib import Path, PurePath
 from typing import BinaryIO
 
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 from app.core.exceptions import AppError, ConflictError, NotFoundError
 from app.models import TicketAttachment, User
 from app.models.enums import AuditAction, TicketStatus
+from app.repositories.attachment import TicketAttachmentRepository
 from app.repositories.audit_log import AuditLogRepository
 from app.services.file_validation import (
     SNIFF_SIZE,
@@ -40,17 +40,12 @@ class AttachmentService:
         self.max_bytes = max_size_mb * 1024 * 1024
         self.max_size_mb = max_size_mb
         self.tickets = TicketService(session)
+        self.attachments = TicketAttachmentRepository(session)
         self.audit = AuditLogRepository(session)
 
     def list(self, user: User, ticket_id: int) -> Sequence[TicketAttachment]:
         ticket = self.tickets.get(user, ticket_id)  # aplica escopo e permissão
-        stmt = (
-            select(TicketAttachment)
-            .where(TicketAttachment.ticket_id == ticket.id)
-            .options(joinedload(TicketAttachment.uploader))
-            .order_by(TicketAttachment.created_at, TicketAttachment.id)
-        )
-        return self.session.scalars(stmt).unique().all()
+        return self.attachments.list_for_ticket(ticket.id)
 
     def upload(
         self,
@@ -66,12 +61,7 @@ class AttachmentService:
             raise ConflictError(
                 "Este chamado está encerrado e não aceita novos anexos.", code="TICKET_CLOSED"
             )
-        count = self.session.scalar(
-            select(func.count())
-            .select_from(TicketAttachment)
-            .where(TicketAttachment.ticket_id == ticket.id)
-        )
-        if (count or 0) >= MAX_ATTACHMENTS_PER_TICKET:
+        if self.attachments.count_for_ticket(ticket.id) >= MAX_ATTACHMENTS_PER_TICKET:
             raise ConflictError(
                 f"Limite de {MAX_ATTACHMENTS_PER_TICKET} anexos por chamado atingido.",
                 code="ATTACHMENT_LIMIT_REACHED",
@@ -104,8 +94,7 @@ class AttachmentService:
                 file_type=kind.mime,
                 file_size=size,
             )
-            self.session.add(attachment)
-            self.session.flush()
+            self.attachments.add(attachment)
             self.audit.record(
                 action=AuditAction.TICKET_UPDATED,
                 entity="ticket",
@@ -129,12 +118,7 @@ class AttachmentService:
         self, user: User, ticket_id: int, attachment_id: int
     ) -> tuple[TicketAttachment, Path]:
         ticket = self.tickets.get(user, ticket_id)
-        attachment = self.session.scalars(
-            select(TicketAttachment).where(
-                TicketAttachment.id == attachment_id,
-                TicketAttachment.ticket_id == ticket.id,
-            )
-        ).one_or_none()
+        attachment = self.attachments.get_for_ticket(ticket.id, attachment_id)
         if attachment is None:
             raise NotFoundError("Anexo não encontrado.", code="ATTACHMENT_NOT_FOUND")
         path = self.storage.path(attachment.file_path)

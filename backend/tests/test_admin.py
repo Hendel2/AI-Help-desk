@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import AuditLog, Company, Ticket, User
-from app.models.enums import AuditAction, RoleName
+from app.models.enums import AuditAction, RoleName, TicketStatus
 
 Headers = Callable[[User], dict[str, str]]
 
@@ -49,11 +49,20 @@ def _error(response: Any) -> str:
 # --- Usuários -------------------------------------------------------------------
 
 
+@pytest.mark.parametrize("who", ["tom", "ana"])  # técnico e usuário comum (§65)
 def test_only_admin_reaches_admin_endpoints(
-    client: TestClient, people: dict[str, User], auth_headers: Headers
+    client: TestClient, people: dict[str, User], auth_headers: Headers, who: str
 ) -> None:
+    headers = auth_headers(people[who])
     for path in ["/users", "/departments", "/sla-policies", "/company", "/audit-logs"]:
-        response = client.get(f"/api/v1{path}", headers=auth_headers(people["tom"]))
+        assert client.get(f"/api/v1{path}", headers=headers).status_code == 403, path
+    writes = [
+        ("post", "/users", {"name": "X Y", "email": "x@y.com", "password": "senha-forte-1"}),
+        ("post", "/categories", {"name": "Nova"}),
+        ("put", f"/users/{people[who].id}", {"role": "ADMIN"}),
+    ]
+    for method, path, body in writes:
+        response = client.request(method, f"/api/v1{path}", json=body, headers=headers)
         assert response.status_code == 403, path
 
 
@@ -345,3 +354,30 @@ def test_ai_settings_read_only(
         "success_rate": None,
         "positive_feedback_rate": None,
     }
+
+
+def test_staff_with_active_tickets_must_be_reassigned_first(
+    client: TestClient,
+    people: dict[str, User],
+    admin: dict[str, str],
+    make_ticket: Callable[..., Ticket],
+    db_session: Session,
+) -> None:
+    """§15: chamado em atendimento exige técnico — não pode ficar com alguém inativo."""
+    tom = people["tom"]
+    ticket = make_ticket(people["ana"])
+    ticket.technician_id = tom.id
+    ticket.status = TicketStatus.IN_PROGRESS
+    db_session.commit()
+
+    blocked = client.delete(f"/api/v1/users/{tom.id}", headers=admin)
+    assert (blocked.status_code, _error(blocked)) == (409, "USER_HAS_ACTIVE_TICKETS")
+    assert blocked.json()["error"]["details"] == {"active_tickets": 1}
+    demoted = client.put(f"/api/v1/users/{tom.id}", json={"role": "USER"}, headers=admin)
+    assert _error(demoted) == "USER_HAS_ACTIVE_TICKETS"
+    inactive = client.put(f"/api/v1/users/{tom.id}", json={"is_active": False}, headers=admin)
+    assert _error(inactive) == "USER_HAS_ACTIVE_TICKETS"
+
+    ticket.status = TicketStatus.CLOSED
+    db_session.commit()
+    assert client.delete(f"/api/v1/users/{tom.id}", headers=admin).status_code == 204
