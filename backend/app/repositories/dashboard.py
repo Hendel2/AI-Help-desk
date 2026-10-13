@@ -9,11 +9,26 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, case, func, select
 from sqlalchemy.orm import Session, joinedload
 
-from app.models import Category, Ticket, TicketHistory, TicketRating, User
-from app.models.enums import TicketPriority, TicketStatus
+from app.models import (
+    AIAction,
+    AIFeedback,
+    Category,
+    Conversation,
+    Ticket,
+    TicketHistory,
+    TicketRating,
+    User,
+)
+from app.models.enums import (
+    AIActionType,
+    AIFeedbackRating,
+    ConversationStatus,
+    TicketPriority,
+    TicketStatus,
+)
 from app.repositories.base import _require_company_id
 
 ACTIVE_STATUSES = (
@@ -104,10 +119,68 @@ class DashboardRepository:
         stmt = self._filter(
             select(Ticket)
             .where(Ticket.resolved_at.is_not(None), Ticket.resolved_at >= since)
-            .options(joinedload(Ticket.technician)),
+            .options(joinedload(Ticket.technician), joinedload(Ticket.category)),
             scope,
         )
         return self.session.scalars(stmt).unique().all()
+
+    def count_by_category_between(
+        self, scope: Scope, start: datetime, end: datetime
+    ) -> dict[str, int]:
+        """Chamados abertos no intervalo [start, end), por categoria (sem as nulas)."""
+        stmt = self._filter(
+            select(Category.name, func.count(Ticket.id))
+            .select_from(Ticket)
+            .join(Category, Category.id == Ticket.category_id)
+            .where(Ticket.created_at >= start, Ticket.created_at < end)
+            .group_by(Category.name),
+            scope,
+        )
+        return {name: count for name, count in self.session.execute(stmt)}
+
+    # --- IA (sempre da empresa inteira) ------------------------------------------
+
+    def conversations_by_status(
+        self, company_id: int, since: datetime
+    ) -> dict[ConversationStatus, int]:
+        stmt = (
+            select(Conversation.status, func.count())
+            .where(
+                Conversation.company_id == _require_company_id(company_id),
+                Conversation.created_at >= since,
+            )
+            .group_by(Conversation.status)
+        )
+        return {status: count for status, count in self.session.execute(stmt)}
+
+    def ai_actions_by_type(
+        self, company_id: int, since: datetime
+    ) -> dict[AIActionType, tuple[int, int]]:
+        """Por tipo: (total, bem-sucedidas)."""
+        stmt = (
+            select(
+                AIAction.action_type,
+                func.count(),
+                func.coalesce(func.sum(case((AIAction.success.is_(True), 1), else_=0)), 0),
+            )
+            .where(
+                AIAction.company_id == _require_company_id(company_id),
+                AIAction.created_at >= since,
+            )
+            .group_by(AIAction.action_type)
+        )
+        return {kind: (int(total), int(ok)) for kind, total, ok in self.session.execute(stmt)}
+
+    def feedback_counts(self, company_id: int, since: datetime) -> dict[AIFeedbackRating, int]:
+        stmt = (
+            select(AIFeedback.rating, func.count())
+            .where(
+                AIFeedback.company_id == _require_company_id(company_id),
+                AIFeedback.created_at >= since,
+            )
+            .group_by(AIFeedback.rating)
+        )
+        return {rating: count for rating, count in self.session.execute(stmt)}
 
     def ratings_since(self, scope: Scope, since: datetime) -> list[tuple[int, int | None]]:
         """(nota, técnico) das avaliações registradas no período."""

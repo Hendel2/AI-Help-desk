@@ -10,11 +10,23 @@ from alembic import command
 from alembic.autogenerate import compare_metadata
 from alembic.config import Config
 from alembic.runtime.migration import MigrationContext
+from alembic.script import ScriptDirectory
 
 from app.core.config import BACKEND_DIR
 from app.models import Base
 
 MYSQL_URL = "mysql+pymysql://helpdesk:secret@localhost:3306/helpdesk"
+
+
+def _head() -> str:
+    config = Config(str(BACKEND_DIR / "alembic.ini"))
+    config.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
+    head = ScriptDirectory.from_config(config).get_current_head()
+    assert head is not None
+    return head
+
+
+HEAD_REVISION = _head()
 
 
 def alembic_config(url: str, output: io.StringIO | None = None) -> Config:
@@ -42,7 +54,7 @@ def test_upgrade_creates_all_tables_and_seeds_roles(sqlite_url: str) -> None:
             roles = connection.execute(sa.text("SELECT name FROM roles ORDER BY id")).scalars()
             assert list(roles) == ["USER", "TECHNICIAN", "ADMIN"]
             version = connection.execute(sa.text("SELECT version_num FROM alembic_version"))
-            assert version.scalar_one() == "0001"
+            assert version.scalar_one() == HEAD_REVISION
     finally:
         engine.dispose()
 

@@ -7,10 +7,17 @@ from app.api.v1.router import api_router
 from app.core.config import APP_NAME, APP_VERSION, Settings, get_settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging
-from app.core.middleware import REQUEST_ID_HEADER, RequestContextMiddleware
+from app.core.middleware import (
+    REQUEST_ID_HEADER,
+    RequestContextMiddleware,
+    SecurityHeadersMiddleware,
+)
+from app.core.rate_limit import RateLimiter
 from app.core.scheduler import lifespan
 from app.schemas.common import ErrorResponse
+from app.services.ai.embeddings import HashingEmbedder
 from app.services.ai.provider import get_provider
+from app.services.ai.vector_store import build_vector_store
 
 API_PREFIX = "/api/v1"
 
@@ -37,6 +44,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     # Provedor de IA (None = modo local/heurístico), criado uma vez por aplicação.
     app.state.ai_provider = get_provider(settings)
+    # RAG: embeddings locais + banco vetorial (Chroma ou memória), compartilhados.
+    app.state.embedder = HashingEmbedder()
+    app.state.vector_store = build_vector_store(settings)
+    app.state.rate_limiter = RateLimiter(enabled=settings.RATE_LIMIT_ENABLED)
 
     # A ordem importa: o último middleware adicionado é o mais externo.
     app.add_middleware(
@@ -47,6 +58,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=["Authorization", "Content-Type", "Accept", REQUEST_ID_HEADER],
         expose_headers=[REQUEST_ID_HEADER],
     )
+    app.add_middleware(SecurityHeadersMiddleware, hsts=settings.is_production)
     app.add_middleware(RequestContextMiddleware)
 
     register_exception_handlers(app)

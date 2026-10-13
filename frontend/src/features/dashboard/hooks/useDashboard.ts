@@ -7,6 +7,7 @@ export const dashboardKeys = {
   metrics: (days: number) => [...dashboardKeys.all, 'metrics', days] as const,
   tickets: (days: number) => [...dashboardKeys.all, 'tickets', days] as const,
   sla: (weeks: number) => [...dashboardKeys.all, 'sla', weeks] as const,
+  ai: (days: number) => [...dashboardKeys.all, 'ai', days] as const,
 }
 
 export function useDashboardMetrics(days: number) {
@@ -27,6 +28,15 @@ export function useDashboardSLA(weeks: number, enabled = true) {
   return useQuery({
     queryKey: dashboardKeys.sla(weeks),
     queryFn: ({ signal }) => dashboardService.sla(weeks, signal),
+    enabled,
+  })
+}
+
+/** Uso da IA e AI Insights (somente equipe). */
+export function useDashboardAI(days: number, enabled = true) {
+  return useQuery({
+    queryKey: dashboardKeys.ai(days),
+    queryFn: ({ signal }) => dashboardService.ai(days, signal),
     enabled,
   })
 }

@@ -291,8 +291,9 @@ class TestEndpoints:
         seed_roles: dict[RoleName, Any],
     ) -> None:
         from app.cli.seed_demo import seed
+        from app.services.ai.vector_store import InMemoryVectorStore
 
-        seed(db_session)
+        seed(db_session, InMemoryVectorStore())
         token = client.post(
             "/api/v1/auth/login", json={"email": "admin@demo.helpdesk", "password": "demo12345"}
         ).json()["access_token"]

@@ -47,6 +47,11 @@ class RegisterRequest(BaseModel):
         return digits
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: SubmittedPassword
+    new_password: Password
+
+
 class RefreshRequest(BaseModel):
     refresh_token: str = Field(min_length=1)
 

@@ -20,6 +20,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.cli.demo_knowledge import KNOWLEDGE_ARTICLES
 from app.core.config import get_settings
 from app.core.database import SessionLocal
 from app.core.security import hash_password
@@ -27,6 +28,7 @@ from app.models import (
     Category,
     Company,
     Department,
+    KnowledgeArticle,
     Role,
     SLAPolicy,
     Ticket,
@@ -36,6 +38,7 @@ from app.models import (
     User,
 )
 from app.models.enums import (
+    ArticleStatus,
     RoleName,
     TicketHistoryAction,
     TicketPriority,
@@ -45,6 +48,9 @@ from app.models.enums import (
 from app.models.types import utcnow
 from app.repositories.ticket import format_ticket_number
 from app.services import sla
+from app.services.ai.embeddings import HashingEmbedder
+from app.services.ai.rag import RAGService
+from app.services.ai.vector_store import VectorStore, build_vector_store
 
 DEMO_COMPANY = "Empresa Demo"
 DEMO_PASSWORD = "demo12345"
@@ -435,7 +441,30 @@ def _create_tickets(
     return created
 
 
-def seed(session: Session) -> bool:
+def _create_knowledge(
+    session: Session, company: Company, admin: User, categories: dict[str, Category]
+) -> list[KnowledgeArticle]:
+    articles = [
+        KnowledgeArticle(
+            company_id=company.id,
+            category_id=categories[category].id,
+            author_id=admin.id,
+            title=title,
+            summary=summary,
+            content=content,
+            status=ArticleStatus.PUBLISHED,
+            is_featured=featured,
+            view_count=(len(title) * 7) % 60,
+            helpful_count=(len(summary) * 3) % 20,
+        )
+        for category, title, summary, content, featured in KNOWLEDGE_ARTICLES
+    ]
+    session.add_all(articles)
+    session.flush()
+    return articles
+
+
+def seed(session: Session, store: VectorStore | None = None) -> bool:
     """Cria os dados. Retorna False se a empresa demo já existir."""
     if session.scalars(select(Company).where(Company.name == DEMO_COMPANY)).first():
         return False
@@ -446,6 +475,12 @@ def seed(session: Session) -> bool:
     users = _create_users(session, company, roles)
     categories, policies = _create_sla_and_categories(session, company)
     total = _create_tickets(session, company, users, categories, policies)
+    articles = _create_knowledge(session, company, users.admin, categories)
+    # Indexa no banco vetorial configurado; se estiver fora do ar, os trechos ficam no
+    # banco e a busca de contingência do RAG continua funcionando.
+    rag = RAGService(session, store or build_vector_store(get_settings()), HashingEmbedder())
+    for article in articles:
+        rag.index_article(article)
     session.commit()
     print(f"Empresa demo criada com {total} chamados.")
     return True

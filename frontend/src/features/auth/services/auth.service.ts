@@ -18,6 +18,14 @@ export function refreshSession(refreshToken: string): Promise<TokenResponse> {
   return post<TokenResponse>('/auth/refresh', { refresh_token: refreshToken })
 }
 
+/** Troca a própria senha. Senha atual errada → 400 (não encerra a sessão). */
+export function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  return post<void>('/auth/change-password', {
+    current_password: currentPassword,
+    new_password: newPassword,
+  })
+}
+
 export function getMe(signal?: AbortSignal): Promise<CurrentUser> {
   return get<CurrentUser>('/auth/me', { signal })
 }

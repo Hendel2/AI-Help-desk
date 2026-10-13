@@ -1,10 +1,17 @@
 """Schemas do dashboard (§39–41)."""
 
 from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel
 
-from app.models.enums import RoleName, TicketHistoryAction, TicketPriority, TicketStatus
+from app.models.enums import (
+    AIActionType,
+    RoleName,
+    TicketHistoryAction,
+    TicketPriority,
+    TicketStatus,
+)
 from app.schemas.ticket import CategorySummary, UserSummary
 
 
@@ -92,3 +99,30 @@ class SLAWeek(BaseModel):
 
 class DashboardSLA(BaseModel):
     weeks: list[SLAWeek]
+
+
+class AIInsight(BaseModel):
+    """Observação gerada a partir dos dados (números exatos, sem LLM)."""
+
+    kind: Literal["growth", "drop", "share", "slowest", "sla", "assistant", "feedback"]
+    tone: Literal["info", "success", "warning"]
+    text: str
+
+
+class AIUsageItem(BaseModel):
+    action_type: AIActionType
+    total: int
+    success: int
+
+
+class DashboardAI(BaseModel):
+    period_days: int
+    conversations: int
+    conversations_resolved: int
+    conversations_escalated: int
+    assistant_resolution_pct: float | None
+    """Conversas encerradas pelo assistente sem virar chamado, sobre as concluídas."""
+    feedback_count: int
+    positive_feedback_pct: float | None
+    usage: list[AIUsageItem]
+    insights: list[AIInsight]

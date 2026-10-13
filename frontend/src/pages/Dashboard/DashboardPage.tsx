@@ -21,12 +21,14 @@ import { Card } from '@/components/ui/Card'
 import { Select } from '@/components/ui/Select'
 import { SkeletonText } from '@/components/ui/Skeleton'
 import { useAuth } from '@/features/auth/useAuth'
+import { AIInsightsCard } from '@/features/dashboard/components/AIInsights'
 import {
   ActivityFeed,
   RecentTicketsList,
   TechnicianTable,
 } from '@/features/dashboard/components/DashboardLists'
 import {
+  useDashboardAI,
   useDashboardMetrics,
   useDashboardSLA,
   useDashboardTickets,
@@ -63,6 +65,7 @@ export function DashboardPage() {
   const tickets = useDashboardTickets(days)
   const isAdmin = user?.role === 'ADMIN'
   const sla = useDashboardSLA(8, isAdmin)
+  const ai = useDashboardAI(days, isAdmin)
 
   if (!user) return null
   const firstName = user.name.split(' ')[0]
@@ -134,6 +137,7 @@ export function DashboardPage() {
 
       {isAdmin ? (
         <div className="grid gap-6 lg:grid-cols-2">
+          <AIInsightsCard query={ai} className="lg:col-span-2" />
           <Panel title="Volume de chamados" query={tickets} className="lg:col-span-2">
             {(data) => (
               <ColumnChart

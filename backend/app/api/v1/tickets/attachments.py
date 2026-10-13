@@ -6,7 +6,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, File, UploadFile, status
 from fastapi.responses import FileResponse
 
-from app.api.deps import ClientIpDep, CurrentUser, SessionDep, SettingsDep
+from app.api.deps import ClientIpDep, CurrentUser, SessionDep, SettingsDep, UploadLimit
 from app.schemas.common import ErrorResponse
 from app.schemas.ticket import TicketAttachmentRead
 from app.services.attachments import AttachmentService
@@ -35,6 +35,7 @@ def list_attachments(
 
 @router.post(
     "",
+    dependencies=[UploadLimit],
     response_model=TicketAttachmentRead,
     status_code=status.HTTP_201_CREATED,
     summary="Envia um anexo (imagens, PDF, Office ou texto)",

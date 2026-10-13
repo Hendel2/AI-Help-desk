@@ -1,11 +1,14 @@
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import JSON, ForeignKey, Index, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, CreatedAtMixin
 from app.models.enums import AuditAction
 from app.models.types import enum_column
+
+if TYPE_CHECKING:
+    from app.models.user import User
 
 
 class AuditLog(CreatedAtMixin, Base):
@@ -30,3 +33,5 @@ class AuditLog(CreatedAtMixin, Base):
     metadata_: Mapped[dict[str, Any] | None] = mapped_column("metadata", JSON)
     # 45 caracteres comportam IPv6.
     ip_address: Mapped[str | None] = mapped_column(String(45))
+
+    user: Mapped["User | None"] = relationship()

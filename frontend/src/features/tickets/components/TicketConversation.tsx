@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Lock } from 'lucide-react'
+import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 
@@ -32,12 +33,20 @@ interface TicketConversationProps {
   ticket: Ticket
   /** Técnicos e administradores veem e criam comentários internos (§18). */
   isStaff: boolean
+  /** Texto a acrescentar na resposta (ex.: rascunho do AI Copilot). */
+  insertText?: string | null
+  onTextInserted?: () => void
 }
 
 const CLOSED_STATUSES = new Set(['CLOSED', 'CANCELLED'])
 
 /** Conversa do chamado: descrição original, comentários e resposta (§43). */
-export function TicketConversation({ ticket, isStaff }: TicketConversationProps) {
+export function TicketConversation({
+  ticket,
+  isStaff,
+  insertText,
+  onTextInserted,
+}: TicketConversationProps) {
   const comments = useTicketComments(ticket.id)
   const isClosed = CLOSED_STATUSES.has(ticket.status)
 
@@ -88,7 +97,12 @@ export function TicketConversation({ ticket, isStaff }: TicketConversationProps)
           Este chamado está encerrado e não aceita novas mensagens.
         </p>
       ) : (
-        <CommentForm ticketId={ticket.id} isStaff={isStaff} />
+        <CommentForm
+          ticketId={ticket.id}
+          isStaff={isStaff}
+          insertText={insertText}
+          onTextInserted={onTextInserted}
+        />
       )}
     </div>
   )
@@ -142,18 +156,41 @@ function Message({ authorName, createdAt, content, isInternal = false, badge }: 
   )
 }
 
-function CommentForm({ ticketId, isStaff }: { ticketId: number; isStaff: boolean }) {
+interface CommentFormProps {
+  ticketId: number
+  isStaff: boolean
+  insertText?: string | null
+  onTextInserted?: () => void
+}
+
+function CommentForm({ ticketId, isStaff, insertText, onTextInserted }: CommentFormProps) {
   const addComment = useAddComment(ticketId)
   const { showToast } = useToast()
   const {
     register,
     handleSubmit,
     reset,
+    getValues,
+    setValue,
+    setFocus,
     formState: { errors },
   } = useForm<CommentFormValues>({
     resolver: zodResolver(commentSchema),
     defaultValues: { content: '', isInternal: false },
   })
+
+  // Acrescenta o texto recebido ao que já foi digitado; o envio continua manual.
+  useEffect(() => {
+    if (!insertText) return
+    const current = getValues('content').trim()
+    setValue('content', current ? `${current}
+
+${insertText}` : insertText, {
+      shouldDirty: true,
+    })
+    setFocus('content')
+    onTextInserted?.()
+  }, [insertText, getValues, setValue, setFocus, onTextInserted])
 
   const onSubmit = async ({ content, isInternal }: CommentFormValues) => {
     try {

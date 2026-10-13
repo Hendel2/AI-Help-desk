@@ -1,4 +1,4 @@
-"""Middleware ASGI de contexto da requisição: request id e access log estruturado."""
+"""Middlewares ASGI: contexto da requisição (request id, access log) e cabeçalhos de segurança."""
 
 import logging
 import re
@@ -66,3 +66,50 @@ class RequestContextMiddleware:
                 },
             )
             request_id_var.reset(token)
+
+
+# A API só devolve JSON e arquivos: nada de scripts, frames ou recursos externos.
+_API_CSP = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"
+_BASE_SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "Cross-Origin-Opener-Policy": "same-origin",
+}
+
+
+class SecurityHeadersMiddleware:
+    """Cabeçalhos de segurança em toda resposta (§60).
+
+    - CSP restritiva, exceto na documentação interativa (Swagger usa CDN);
+    - `Cache-Control: no-store` nas rotas de autenticação (respostas com tokens);
+    - HSTS apenas em produção (exige HTTPS na frente da API).
+    """
+
+    def __init__(self, app: ASGIApp, *, hsts: bool = False) -> None:
+        self.app = app
+        self.hsts = hsts
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        path: str = scope.get("path", "")
+
+        async def send_with_headers(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                for name, value in _BASE_SECURITY_HEADERS.items():
+                    headers.setdefault(name, value)
+                if not path.startswith("/api/docs"):
+                    headers.setdefault("Content-Security-Policy", _API_CSP)
+                if path.startswith("/api/v1/auth/"):
+                    headers["Cache-Control"] = "no-store"
+                if self.hsts:
+                    headers.setdefault(
+                        "Strict-Transport-Security", "max-age=63072000; includeSubDomains"
+                    )
+            await send(message)
+
+        await self.app(scope, receive, send_with_headers)

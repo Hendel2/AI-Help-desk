@@ -89,6 +89,11 @@ export function listCategories(signal?: AbortSignal): Promise<Category[]> {
   return get<Category[]>('/categories', { signal })
 }
 
+/** Técnicos e administradores ativos (para o ADMIN atribuir chamados). */
+export function listTechnicians(signal?: AbortSignal): Promise<Array<{ id: number; name: string }>> {
+  return get<Array<{ id: number; name: string }>>('/users/technicians', { signal })
+}
+
 export function listAttachments(id: number, signal?: AbortSignal): Promise<TicketAttachment[]> {
   return get<TicketAttachment[]>(`/tickets/${id}/attachments`, { signal })
 }

@@ -29,12 +29,17 @@ vi.mock('@/features/tickets/services/tickets.service', () => ({
   listAttachments: vi.fn(),
   uploadAttachment: vi.fn(),
   downloadAttachment: vi.fn(),
+  listTechnicians: vi.fn(),
 }))
 vi.mock('@/utils/download', () => ({ saveBlob: vi.fn() }))
+vi.mock('@/features/ai/services/ai.service', () => ({
+  aiService: { classify: vi.fn(), copilot: vi.fn(), findArticles: vi.fn() },
+}))
 
 const { getMeWithRefresh } = await import('@/features/auth/services/auth.service')
 const service = await import('@/features/tickets/services/tickets.service')
 const { saveBlob } = await import('@/utils/download')
+const { aiService } = await import('@/features/ai/services/ai.service')
 
 function renderPage(role: RoleName, ticket: Ticket) {
   saveTokens(TEST_TOKENS)
@@ -238,5 +243,72 @@ describe('TicketDetailsPage', () => {
       expect(service.uploadAttachment).toHaveBeenCalledWith(1, file)
     })
     expect(await screen.findByText('"log.txt" anexado.')).toBeInTheDocument()
+  })
+
+  it('Copilot gera rascunho editável e só o leva para a resposta, sem enviar', async () => {
+    const user = userEvent.setup()
+    vi.mocked(aiService.copilot).mockResolvedValue({
+      action: 'generate_response',
+      text: 'Olá, Ana! Atualize o cliente VPN.',
+      sources: [{ article_id: 3, title: 'Falha de autenticação na VPN' }],
+      mode: 'heuristic',
+    })
+    renderPage('TECHNICIAN', makeTicket())
+
+    await user.click(await screen.findByRole('button', { name: 'Gerar resposta' }))
+
+    expect(aiService.copilot).toHaveBeenCalledWith('generate_response', 1)
+    const draft = await screen.findByLabelText('Rascunho de resposta')
+    expect(screen.getByRole('link', { name: 'Falha de autenticação na VPN' })).toHaveAttribute(
+      'href',
+      '/base-de-conhecimento/3',
+    )
+    await user.type(draft, ' Abraço.')
+    await user.click(screen.getByRole('button', { name: 'Adicionar ao comentário' }))
+
+    expect(screen.getByLabelText('Responder')).toHaveValue(
+      'Olá, Ana! Atualize o cliente VPN. Abraço.',
+    )
+    expect(service.addComment).not.toHaveBeenCalled()
+  })
+
+  it('Copilot lista artigos relacionados e permite tentar de novo após erro', async () => {
+    const user = userEvent.setup()
+    vi.mocked(aiService.findArticles)
+      .mockRejectedValueOnce(new ApiError({ status: 500, code: 'INTERNAL_ERROR', message: 'Falha interna.' }))
+      .mockResolvedValueOnce([{ article_id: 4, title: 'VPN no Windows', excerpt: 'Passo 1' }])
+    renderPage('TECHNICIAN', makeTicket())
+
+    await user.click(await screen.findByRole('button', { name: 'Encontrar artigos' }))
+    expect(await screen.findByText('O Copilot não conseguiu responder.')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Tentar novamente' }))
+    expect(await screen.findByRole('link', { name: 'VPN no Windows' })).toBeInTheDocument()
+  })
+
+  it('não mostra o Copilot ao solicitante', async () => {
+    renderPage('USER', makeTicket())
+
+    expect(await screen.findByText('Já estamos verificando.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Resumir chamado' })).not.toBeInTheDocument()
+  })
+
+  it('permite ao administrador atribuir o chamado a outro técnico', async () => {
+    const user = userEvent.setup()
+    const ticket = makeTicket({ allowed_transitions: ['IN_PROGRESS', 'CANCELLED'] })
+    vi.mocked(service.listTechnicians).mockResolvedValue([
+      { id: 20, name: 'Téo Técnico' },
+      { id: 21, name: 'Tânia Técnica' },
+    ])
+    vi.mocked(service.assignTicket).mockResolvedValue({
+      ...ticket,
+      technician: { id: 21, name: 'Tânia Técnica', email: 'tania@empresa.com' },
+    })
+    renderPage('ADMIN', ticket)
+
+    await user.selectOptions(await screen.findByLabelText('Técnico responsável'), '21')
+
+    expect(service.assignTicket).toHaveBeenCalledWith(1, 21)
+    expect(await screen.findByText('Chamado atribuído a Tânia Técnica.')).toBeInTheDocument()
   })
 })

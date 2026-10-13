@@ -5,8 +5,9 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 
 from app.api.deps import CurrentUser, SessionDep
-from app.schemas.dashboard import DashboardMetrics, DashboardSLA, DashboardTickets
+from app.schemas.dashboard import DashboardAI, DashboardMetrics, DashboardSLA, DashboardTickets
 from app.services.dashboard import DashboardService
+from app.services.insights import InsightsService
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -41,3 +42,12 @@ def sla_evolution(
     weeks: Annotated[int, Query(ge=1, le=26)] = 8,
 ) -> DashboardSLA:
     return service.sla_evolution(user, weeks=weeks)
+
+
+@router.get(
+    "/ai",
+    response_model=DashboardAI,
+    summary="Uso da IA, desempenho do assistente e AI Insights (equipe)",
+)
+def ai_dashboard(user: CurrentUser, session: SessionDep, days: Days = 30) -> DashboardAI:
+    return InsightsService(session).dashboard(user, days=days)

@@ -1,6 +1,6 @@
 import { get } from '@/services/api/client'
 
-import type { DashboardMetrics, DashboardSLA, DashboardTickets } from '../types'
+import type { DashboardAI, DashboardMetrics, DashboardSLA, DashboardTickets } from '../types'
 
 /** Chamadas HTTP do dashboard. */
 
@@ -11,4 +11,6 @@ export const dashboardService = {
     get<DashboardTickets>(`/dashboard/tickets?days=${days}`, { signal }),
   sla: (weeks: number, signal?: AbortSignal) =>
     get<DashboardSLA>(`/dashboard/sla?weeks=${weeks}`, { signal }),
+  ai: (days: number, signal?: AbortSignal) =>
+    get<DashboardAI>(`/dashboard/ai?days=${days}`, { signal }),
 }

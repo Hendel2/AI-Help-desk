@@ -32,6 +32,7 @@ def settings(tmp_path: Path) -> Settings:
         UPLOAD_DIR=tmp_path / "uploads",
         MAX_UPLOAD_SIZE_MB=1,
         SLA_MONITOR_INTERVAL_SECONDS=0,
+        VECTOR_STORE_PROVIDER="memory",
         ENVIRONMENT="test",
         DATABASE_URL="sqlite://",
         JWT_SECRET=TEST_JWT_SECRET,

@@ -24,3 +24,22 @@ class ClassifyResponse(BaseModel):
     priority: TicketPriority
     confidence: float
     source: Literal["llm", "heuristic"]
+
+
+class CopilotRequest(BaseModel):
+    ticket_id: int
+
+
+class CopilotSource(BaseModel):
+    article_id: int
+    title: str
+    excerpt: str | None = None
+
+
+class CopilotResponse(BaseModel):
+    """Sugestão do Copilot: texto editável, nunca enviado automaticamente (§30)."""
+
+    action: str
+    text: str
+    sources: list[CopilotSource]
+    mode: Literal["llm", "heuristic"]

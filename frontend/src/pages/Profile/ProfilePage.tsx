@@ -1,3 +1,4 @@
+import { ChangePasswordForm } from '@/features/auth/components/ChangePasswordForm'
 import { ROLE_LABELS } from '@/features/auth/roleLabels'
 import { useAuth } from '@/features/auth/useAuth'
 
@@ -30,6 +31,8 @@ export function ProfilePage() {
           </div>
         ))}
       </dl>
+
+      <ChangePasswordForm />
     </div>
   )
 }

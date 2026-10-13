@@ -104,7 +104,7 @@ describe('AppLayout', () => {
     expect(within(nav).getByText('Meus chamados')).toBeInTheDocument()
   })
 
-  it('marca a rota atual e não gera link para itens de etapas futuras', async () => {
+  it('marca a rota atual e mostra só os itens permitidos ao perfil', async () => {
     renderLayout('TECHNICIAN')
     await screen.findByRole('heading', { name: 'Meu perfil' })
 
@@ -113,10 +113,11 @@ describe('AppLayout', () => {
       'aria-current',
       'page',
     )
-    expect(within(nav).queryByRole('link', { name: /Assistente IA/ })).not.toBeInTheDocument()
-    const unavailable = within(nav).getAllByTitle('Disponível em breve')
-    expect(unavailable.length).toBeGreaterThan(0)
-    expect(unavailable[0]).toHaveAttribute('aria-disabled', 'true')
+    expect(within(nav).getByRole('link', { name: /Indicadores/ })).toHaveAttribute(
+      'href',
+      '/relatorios',
+    )
+    expect(within(nav).queryByRole('link', { name: /Usuários/ })).not.toBeInTheDocument()
   })
 
   it('abre e fecha a navegação em drawer no mobile', async () => {

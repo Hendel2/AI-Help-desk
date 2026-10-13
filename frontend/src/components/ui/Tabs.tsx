@@ -15,6 +15,9 @@ export interface TabsProps {
   label: string
   tabs: TabItem[]
   defaultTabId?: string
+  /** Modo controlado: aba ativa e aviso de troca. */
+  activeTabId?: string
+  onTabChange?: (id: string) => void
   className?: string
 }
 
@@ -22,9 +25,21 @@ export interface TabsProps {
  * Abas acessíveis (padrão WAI-ARIA): setas, Home e End movem entre as abas;
  * apenas a aba ativa entra na ordem de tabulação.
  */
-export function Tabs({ label, tabs, defaultTabId, className }: TabsProps) {
+export function Tabs({
+  label,
+  tabs,
+  defaultTabId,
+  activeTabId,
+  onTabChange,
+  className,
+}: TabsProps) {
   const baseId = useId()
-  const [activeId, setActiveId] = useState(defaultTabId ?? tabs[0]?.id)
+  const [internalId, setInternalId] = useState(defaultTabId ?? tabs[0]?.id)
+  const activeId = activeTabId ?? internalId
+  const setActiveId = (id: string) => {
+    setInternalId(id)
+    onTabChange?.(id)
+  }
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([])
   const activeIndex = Math.max(
     0,

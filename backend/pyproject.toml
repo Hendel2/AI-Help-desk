@@ -11,6 +11,8 @@ pythonpath = ["."]
 addopts = "-ra"
 filterwarnings = [
     "error::DeprecationWarning:app.*",
+    # Telemetria interna do chromadb usa API do asyncio depreciada no Python 3.14.
+    "ignore:'asyncio.iscoroutinefunction' is deprecated:DeprecationWarning:chromadb.*",
     # Starlette 1.x recomenda o pacote httpx2 para o TestClient; httpx segue suportado.
     "ignore:Using .httpx. with .starlette.testclient. is deprecated:UserWarning",
 ]

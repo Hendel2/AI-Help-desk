@@ -5,6 +5,7 @@ import {
   ChartNoAxesColumn,
   FolderTree,
   LayoutDashboard,
+  ScrollText,
   Settings,
   Ticket,
   Timer,
@@ -39,8 +40,8 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     items: [
       { label: 'Dashboard', to: '/', icon: LayoutDashboard, available: true },
-      { label: 'Assistente IA', to: '/assistente', icon: Bot, available: false },
-      { label: 'Base de conhecimento', to: '/base-de-conhecimento', icon: BookOpen, available: false },
+      { label: 'Assistente IA', to: '/assistente', icon: Bot, available: true },
+      { label: 'Base de conhecimento', to: '/base-de-conhecimento', icon: BookOpen, available: true },
     ],
   },
   {
@@ -70,7 +71,7 @@ export const NAV_SECTIONS: NavSection[] = [
         label: 'Indicadores',
         to: '/relatorios',
         icon: ChartNoAxesColumn,
-        available: false,
+        available: true,
         roles: ['TECHNICIAN', 'ADMIN'],
       },
     ],
@@ -78,27 +79,34 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     title: 'Administração',
     items: [
-      { label: 'Usuários', to: '/admin/usuarios', icon: Users, available: false, roles: ['ADMIN'] },
+      { label: 'Usuários', to: '/admin/usuarios', icon: Users, available: true, roles: ['ADMIN'] },
       {
         label: 'Departamentos',
         to: '/admin/departamentos',
         icon: Building2,
-        available: false,
+        available: true,
         roles: ['ADMIN'],
       },
       {
         label: 'Categorias',
         to: '/admin/categorias',
         icon: FolderTree,
-        available: false,
+        available: true,
         roles: ['ADMIN'],
       },
-      { label: 'SLA', to: '/admin/sla', icon: Timer, available: false, roles: ['ADMIN'] },
+      { label: 'SLA', to: '/admin/sla', icon: Timer, available: true, roles: ['ADMIN'] },
       {
         label: 'Configurações',
         to: '/admin/configuracoes',
         icon: Settings,
-        available: false,
+        available: true,
+        roles: ['ADMIN'],
+      },
+      {
+        label: 'Auditoria',
+        to: '/admin/auditoria',
+        icon: ScrollText,
+        available: true,
         roles: ['ADMIN'],
       },
     ],

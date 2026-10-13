@@ -10,6 +10,9 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings, get_settings
 from app.core.database import SessionLocal
 from app.core.exceptions import ForbiddenError, UnauthorizedError
+from app.core.rate_limit import AI as AI_RULE
+from app.core.rate_limit import UPLOAD as UPLOAD_RULE
+from app.core.rate_limit import RateLimiterDep, Rule
 from app.models import User
 from app.models.enums import RoleName
 from app.services.auth import AuthService
@@ -83,3 +86,16 @@ def get_client_ip(request: Request) -> str | None:
 
 
 ClientIpDep = Annotated[str | None, Depends(get_client_ip)]
+
+
+def rate_limited(rule: Rule) -> Callable[..., None]:
+    """Limite por usuário autenticado (rotas de IA e uploads)."""
+
+    def dependency(user: CurrentUser, limiter: RateLimiterDep) -> None:
+        limiter.check(rule, f"user:{user.id}")
+
+    return dependency
+
+
+AILimit = Depends(rate_limited(AI_RULE))
+UploadLimit = Depends(rate_limited(UPLOAD_RULE))

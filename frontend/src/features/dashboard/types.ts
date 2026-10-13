@@ -87,3 +87,30 @@ export interface SLAWeek {
 export interface DashboardSLA {
   weeks: SLAWeek[]
 }
+
+export type AIActionType =
+  | 'CLASSIFY_TICKET'
+  | 'SUMMARIZE_TICKET'
+  | 'SUGGEST_SOLUTION'
+  | 'GENERATE_RESPONSE'
+  | 'RAG_SEARCH'
+  | 'CHAT_RESPONSE'
+
+/** Observação calculada a partir dos dados (números exatos, sem LLM). */
+export interface AIInsight {
+  kind: 'growth' | 'drop' | 'share' | 'slowest' | 'sla' | 'assistant' | 'feedback'
+  tone: 'info' | 'success' | 'warning'
+  text: string
+}
+
+export interface DashboardAI {
+  period_days: number
+  conversations: number
+  conversations_resolved: number
+  conversations_escalated: number
+  assistant_resolution_pct: number | null
+  feedback_count: number
+  positive_feedback_pct: number | null
+  usage: Array<{ action_type: AIActionType; total: number; success: number }>
+  insights: AIInsight[]
+}

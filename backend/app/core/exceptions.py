@@ -86,6 +86,12 @@ class ConflictError(AppError):
     message = "A operação conflita com o estado atual do recurso."
 
 
+class TooManyRequestsError(AppError):
+    status_code = 429
+    code = "RATE_LIMITED"
+    message = "Muitas requisições. Tente novamente em instantes."
+
+
 def error_response(
     status_code: int,
     code: str,

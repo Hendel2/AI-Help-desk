@@ -10,7 +10,9 @@ from app.models.enums import ArticleSourceType, ArticleStatus
 from app.models.types import LongText, UTCDateTime, enum_column
 
 if TYPE_CHECKING:
+    from app.models.category import Category
     from app.models.knowledge_chunk import KnowledgeChunk
+    from app.models.user import User
 
 
 class KnowledgeArticle(CompanyScopedMixin, TimestampMixin, Base):
@@ -48,6 +50,8 @@ class KnowledgeArticle(CompanyScopedMixin, TimestampMixin, Base):
     # Última indexação no banco vetorial (NULL = ainda não indexado).
     indexed_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
 
+    category: Mapped["Category | None"] = relationship()
+    author: Mapped["User | None"] = relationship()
     chunks: Mapped[list["KnowledgeChunk"]] = relationship(
         back_populates="article",
         cascade="all, delete-orphan",

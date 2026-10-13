@@ -33,9 +33,31 @@ async def _sla_monitor(interval: int) -> None:
             logger.exception("Falha no monitor de SLA")
 
 
+def rebuild_memory_index(app: FastAPI) -> int:
+    """Banco vetorial em memória começa vazio: reindexa os artigos publicados."""
+    from sqlalchemy import select
+
+    from app.models import Company
+    from app.services.ai.rag import RAGService
+
+    with SessionLocal() as session:
+        rag = RAGService(session, app.state.vector_store, app.state.embedder)
+        total = sum(
+            rag.reindex_company(company_id) for company_id in session.scalars(select(Company.id))
+        )
+        session.commit()
+        return total
+
+
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    interval = app.state.settings.SLA_MONITOR_INTERVAL_SECONDS
+    settings = app.state.settings
+    if settings.VECTOR_STORE_PROVIDER == "memory" and settings.ENVIRONMENT != "test":
+        try:
+            await asyncio.to_thread(rebuild_memory_index, app)
+        except Exception:
+            logger.exception("Falha ao reconstruir o índice em memória")
+    interval = settings.SLA_MONITOR_INTERVAL_SECONDS
     task = asyncio.create_task(_sla_monitor(interval)) if interval > 0 else None
     try:
         yield

@@ -9,9 +9,10 @@ import { Modal } from '@/components/ui/Modal'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import { useToast } from '@/components/ui/useToast'
+import { useAuth } from '@/features/auth/useAuth'
 import { getErrorMessage } from '@/services/api/errors'
 
-import { useTicketActions } from '../hooks/useTickets'
+import { useTechnicians, useTicketActions } from '../hooks/useTickets'
 import { PRIORITY_LABELS, STATUS_ACTION_LABELS, STATUS_LABELS } from '../labels'
 import { TICKET_PRIORITIES } from '../types'
 import type { Ticket, TicketPriority, TicketStatus } from '../types'
@@ -41,12 +42,16 @@ type SolutionValues = z.infer<typeof solutionSchema>
  */
 export function TicketActions({ ticket, isStaff }: TicketActionsProps) {
   const actions = useTicketActions(ticket.id)
+  const { hasRole } = useAuth()
   const { showToast } = useToast()
   const [dialog, setDialog] = useState<'resolve' | 'cancel' | null>(null)
 
   const allowed = new Set(ticket.allowed_transitions)
   const isFinished = ticket.status === 'CLOSED' || ticket.status === 'CANCELLED'
   const canTakeOver = isStaff && !isFinished && ticket.technician === null
+  // Atribuir a outra pessoa é exclusivo do ADMIN (o backend também valida).
+  const canAssignOthers = hasRole('ADMIN') && !isFinished
+  const technicians = useTechnicians(canAssignOthers)
   const busy =
     actions.assign.isPending ||
     actions.changeStatus.isPending ||
@@ -127,6 +132,25 @@ export function TicketActions({ ticket, isStaff }: TicketActionsProps) {
           <Button variant="ghost" disabled={busy} onClick={() => setDialog('cancel')}>
             {STATUS_ACTION_LABELS.CANCELLED}
           </Button>
+        ) : null}
+
+        {canAssignOthers && technicians.data ? (
+          <Select
+            label="Técnico responsável"
+            containerClassName="mt-2"
+            placeholder="Não atribuído"
+            value={ticket.technician ? String(ticket.technician.id) : ''}
+            disabled={busy}
+            options={technicians.data.map((tech) => ({ value: String(tech.id), label: tech.name }))}
+            onChange={(event) => {
+              const target = technicians.data.find((tech) => String(tech.id) === event.target.value)
+              if (!target) return
+              void run(
+                () => actions.assign.mutateAsync(target.id),
+                `Chamado atribuído a ${target.name}.`,
+              )
+            }}
+          />
         ) : null}
 
         {isStaff && !isFinished ? (

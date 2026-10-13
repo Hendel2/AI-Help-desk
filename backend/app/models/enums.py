@@ -78,6 +78,8 @@ class AuditAction(StrEnum):
     KNOWLEDGE_DELETED = "KNOWLEDGE_DELETED"
     LOGIN_SUCCEEDED = "LOGIN_SUCCEEDED"
     LOGIN_FAILED = "LOGIN_FAILED"
+    # Departamentos, categorias, SLA e dados da empresa (`entity` diz qual).
+    SETTINGS_CHANGED = "SETTINGS_CHANGED"
 
 
 class ConversationStatus(StrEnum):

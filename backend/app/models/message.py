@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING, Any
 
+import sqlalchemy as sa
 from sqlalchemy import JSON, CheckConstraint, Float, ForeignKey, Index, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -30,5 +31,7 @@ class Message(CreatedAtMixin, Base):
     confidence: Mapped[float | None] = mapped_column(Float)
     # Fontes da base de conhecimento usadas na resposta (ex.: ids/títulos de artigos).
     sources: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON)
+    # A resposta do assistente recomendou escalar para um chamado (§26).
+    suggest_ticket: Mapped[bool] = mapped_column(default=False, server_default=sa.false())
 
     conversation: Mapped["Conversation"] = relationship(back_populates="messages")

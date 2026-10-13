@@ -8,12 +8,13 @@ from sqlalchemy.orm import Session
 from app.cli.seed_demo import DEMO_COMPANY, seed
 from app.models import Company, Ticket, TicketHistory, User
 from app.models.enums import RoleName, TicketStatus
+from app.services.ai.vector_store import InMemoryVectorStore
 
 
 def test_seed_creates_a_consistent_demo_company(
     db_session: Session, seed_roles: dict[RoleName, Any]
 ) -> None:
-    assert seed(db_session) is True
+    assert seed(db_session, InMemoryVectorStore()) is True
 
     company = db_session.scalars(select(Company).where(Company.name == DEMO_COMPANY)).one()
     tickets = db_session.scalars(select(Ticket).where(Ticket.company_id == company.id)).all()
@@ -37,17 +38,17 @@ def test_seed_creates_a_consistent_demo_company(
 
 
 def test_seed_is_idempotent(db_session: Session, seed_roles: dict[RoleName, Any]) -> None:
-    assert seed(db_session) is True
+    assert seed(db_session, InMemoryVectorStore()) is True
     count = db_session.scalar(select(func.count()).select_from(TicketHistory))
 
-    assert seed(db_session) is False
+    assert seed(db_session, InMemoryVectorStore()) is False
     assert db_session.scalar(select(func.count()).select_from(TicketHistory)) == count
 
 
 def test_demo_users_can_log_in(
     client: Any, db_session: Session, seed_roles: dict[RoleName, Any]
 ) -> None:
-    seed(db_session)
+    seed(db_session, InMemoryVectorStore())
 
     response = client.post(
         "/api/v1/auth/login", json={"email": "tecnico@demo.helpdesk", "password": "demo12345"}
@@ -64,8 +65,27 @@ def test_demo_users_can_log_in(
 def test_seed_numbers_follow_the_opening_order(
     db_session: Session, seed_roles: dict[RoleName, Any]
 ) -> None:
-    seed(db_session)
+    seed(db_session, InMemoryVectorStore())
 
     tickets = db_session.scalars(select(Ticket).order_by(Ticket.created_at)).all()
 
     assert [t.ticket_number for t in tickets] == sorted(t.ticket_number for t in tickets)
+
+
+def test_seed_creates_searchable_knowledge(
+    app: Any, client: Any, db_session: Session, seed_roles: dict[RoleName, Any]
+) -> None:
+    # Mesmo banco vetorial da API (como o Chroma compartilhado em produção).
+    seed(db_session, app.state.vector_store)
+    token = client.post(
+        "/api/v1/auth/login", json={"email": "usuario@demo.helpdesk", "password": "demo12345"}
+    ).json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    listing = client.get("/api/v1/knowledge", headers=headers).json()
+    suggestions = client.get(
+        "/api/v1/knowledge/suggest?q=minha vpn diz falha de autenticação", headers=headers
+    ).json()
+
+    assert listing["total"] == 8
+    assert suggestions[0]["title"] == "Falha de autenticação na VPN"

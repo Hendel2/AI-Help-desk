@@ -9,7 +9,13 @@ from datetime import timedelta
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
-from app.core.exceptions import AppError, ConflictError, ForbiddenError, UnauthorizedError
+from app.core.exceptions import (
+    AppError,
+    BadRequestError,
+    ConflictError,
+    ForbiddenError,
+    UnauthorizedError,
+)
 from app.core.security import (
     InvalidTokenError,
     TokenPayload,
@@ -121,6 +127,32 @@ class AuthService:
         )
         self.session.commit()
         return user, tokens
+
+    def change_password(
+        self,
+        user: User,
+        current_password: str,
+        new_password: str,
+        *,
+        ip_address: str | None = None,
+    ) -> None:
+        if not verify_password(current_password, user.password_hash):
+            raise BadRequestError("A senha atual está incorreta.", code="INVALID_PASSWORD")
+        if verify_password(new_password, user.password_hash):
+            raise BadRequestError(
+                "A nova senha precisa ser diferente da atual.", code="PASSWORD_UNCHANGED"
+            )
+        user.password_hash = hash_password(new_password)
+        self.audit.record(
+            action=AuditAction.USER_UPDATED,
+            entity="user",
+            entity_id=user.id,
+            company_id=user.company_id,
+            user_id=user.id,
+            metadata={"fields": ["password"], "self_service": True},
+            ip_address=ip_address,
+        )
+        self.session.commit()
 
     def register(
         self, data: RegisterRequest, *, ip_address: str | None = None

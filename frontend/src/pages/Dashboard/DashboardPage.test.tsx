@@ -17,7 +17,7 @@ vi.mock('@/features/auth/services/auth.service', () => ({
   register: vi.fn(),
 }))
 vi.mock('@/features/dashboard/services/dashboard.service', () => ({
-  dashboardService: { metrics: vi.fn(), tickets: vi.fn(), sla: vi.fn() },
+  dashboardService: { metrics: vi.fn(), tickets: vi.fn(), sla: vi.fn(), ai: vi.fn() },
 }))
 
 const { getMeWithRefresh } = await import('@/features/auth/services/auth.service')
@@ -108,6 +108,19 @@ function renderDashboard(role: RoleName, metricOverrides: Partial<DashboardMetri
       { week_start: '2026-10-05', resolved: 0, within_sla: 0, compliance_pct: null },
     ],
   })
+  vi.mocked(dashboardService.ai).mockResolvedValue({
+    period_days: 30,
+    conversations: 10,
+    conversations_resolved: 6,
+    conversations_escalated: 2,
+    assistant_resolution_pct: 75,
+    feedback_count: 0,
+    positive_feedback_pct: null,
+    usage: [{ action_type: 'CHAT_RESPONSE', total: 12, success: 12 }],
+    insights: [
+      { kind: 'growth', tone: 'warning', text: 'Chamados de VPN aumentaram 50% nesta semana (4 → 6).' },
+    ],
+  })
   return renderWithProviders(<DashboardPage />, { withAuth: true })
 }
 
@@ -136,6 +149,7 @@ describe('DashboardPage', () => {
     expect(screen.queryByText('Desempenho dos técnicos')).not.toBeInTheDocument()
     expect(screen.queryByText('SLA vencido')).not.toBeInTheDocument()
     expect(dashboardService.sla).not.toHaveBeenCalled()
+    expect(dashboardService.ai).not.toHaveBeenCalled()
   })
 
   it('mostra ao técnico a fila, o SLA em risco e a distribuição por prioridade', async () => {
@@ -178,6 +192,11 @@ describe('DashboardPage', () => {
     const slaTable = await screen.findByRole('table', { name: 'Resolvidos dentro do prazo (%)' })
     expect(within(slaTable).getByText('75%')).toBeInTheDocument()
     expect(within(slaTable).getByText('—')).toBeInTheDocument()
+
+    const insights = await screen.findByRole('region', { name: 'AI Insights' })
+    expect(
+      await within(insights).findByText('Chamados de VPN aumentaram 50% nesta semana (4 → 6).'),
+    ).toBeInTheDocument()
   })
 
   it('refaz a consulta ao trocar o período', async () => {

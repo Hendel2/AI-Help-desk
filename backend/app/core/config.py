@@ -50,9 +50,14 @@ class Settings(BaseSettings):
     AI_API_KEY: SecretStr | None = None
     AI_MODEL: str | None = None
     VECTOR_DB_URL: str = "http://localhost:8001"
+    # "chroma" (serviço vector-db) ou "memory" (testes/dev sem Docker; reindexa ao subir).
+    VECTOR_STORE_PROVIDER: Literal["chroma", "memory"] = "chroma"
 
     UPLOAD_DIR: Path = BACKEND_DIR / "uploads"
     MAX_UPLOAD_SIZE_MB: int = Field(default=10, ge=1, le=1024)
+
+    # Limite de requisições em login/cadastro, IA e uploads (§60).
+    RATE_LIMIT_ENABLED: bool = True
 
     # Monitor de SLA embutido na API (alertas de vencimento). 0 = desligado.
     SLA_MONITOR_INTERVAL_SECONDS: int = Field(default=300, ge=0, le=86_400)

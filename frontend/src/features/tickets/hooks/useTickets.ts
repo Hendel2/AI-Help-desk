@@ -12,6 +12,7 @@ export const ticketKeys = {
   history: (id: number) => [...ticketKeys.all, 'detail', id, 'history'] as const,
   attachments: (id: number) => [...ticketKeys.all, 'detail', id, 'attachments'] as const,
   categories: ['categories'] as const,
+  technicians: ['technicians'] as const,
 }
 
 export function useTicketList(params: TicketListParams) {
@@ -44,6 +45,15 @@ export function useTicketHistory(id: number, enabled = true) {
     queryKey: ticketKeys.history(id),
     queryFn: ({ signal }) => ticketsService.listHistory(id, signal),
     enabled: enabled && Number.isInteger(id) && id > 0,
+  })
+}
+
+export function useTechnicians(enabled: boolean) {
+  return useQuery({
+    queryKey: ticketKeys.technicians,
+    queryFn: ({ signal }) => ticketsService.listTechnicians(signal),
+    enabled,
+    staleTime: 5 * 60_000,
   })
 }
 
