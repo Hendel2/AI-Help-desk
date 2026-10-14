@@ -136,7 +136,7 @@ export function ChatPage() {
                       item.id === conversationId ? 'text-text' : SECONDARY_ON_TINT,
                     )}
                   >
-                    {STATUS_LABELS[item.status]} · {formatRelative(item.updated_at)}
+                    {STATUS_LABELS[item.status]}, {formatRelative(item.updated_at)}
                   </span>
                 </button>
               </li>
@@ -173,16 +173,23 @@ export function ChatPage() {
               onRetry={() => void conversation.refetch()}
             />
           ) : messages.length === 0 && pending === null ? (
-            <div className="flex h-full flex-col items-center justify-center gap-4 py-10 text-center">
-              <p className="text-lg font-medium text-text">Olá! Como posso ajudar?</p>
-              <div className="flex flex-wrap justify-center gap-2">
+            <div className="mx-auto flex h-full max-w-lg flex-col justify-center gap-5 py-10">
+              <div className="space-y-1">
+                <p className="text-lg font-semibold tracking-tight text-text">
+                  Olá! Como posso ajudar?
+                </p>
+                <p className="text-sm text-secondary">
+                  Descreva o problema com suas palavras ou comece por um destes:
+                </p>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
                 {EXAMPLES.map((example) => (
                   <button
                     key={example}
                     type="button"
                     onClick={() => void submit(example)}
                     className={cx(
-                      'rounded-full border border-border px-3 py-1.5 text-sm text-text transition-colors hover:bg-surface-hover',
+                      'min-h-11 rounded-md border border-border bg-surface px-3 py-2.5 text-left text-sm text-text transition-colors hover:border-border-strong hover:bg-surface-hover',
                       FOCUS_RING,
                     )}
                   >

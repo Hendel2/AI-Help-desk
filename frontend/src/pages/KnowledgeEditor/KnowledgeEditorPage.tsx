@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form'
 import { useNavigate, useParams } from 'react-router'
 import { z } from 'zod'
 
+import { PageHeader } from '@/components/PageHeader'
 import { ErrorState } from '@/components/ErrorState'
 import { FileUpload } from '@/components/FileUpload'
 import { Button } from '@/components/ui/Button'
@@ -140,12 +141,10 @@ export function KnowledgeEditorPage() {
       >
         Voltar
       </ButtonLink>
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold text-text">{isEdit ? 'Editar artigo' : 'Novo artigo'}</h1>
-        <p className="text-sm text-secondary">
-          Artigos publicados são usados pelo Assistente de TI para responder aos usuários.
-        </p>
-      </header>
+      <PageHeader
+        title={isEdit ? 'Editar artigo' : 'Novo artigo'}
+        description="Artigos publicados são usados pelo Assistente de TI para responder aos usuários."
+      />
 
       {!isEdit ? (
         <Card title="Importar de um arquivo">

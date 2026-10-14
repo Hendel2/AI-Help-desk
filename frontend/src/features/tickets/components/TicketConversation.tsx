@@ -4,9 +4,9 @@ import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 
-import { EmptyState } from '@/components/EmptyState'
 import { ErrorState } from '@/components/ErrorState'
 import { Avatar } from '@/components/ui/Avatar'
+import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { SkeletonText } from '@/components/ui/Skeleton'
 import { cx } from '@/components/ui/styles'
@@ -52,8 +52,11 @@ export function TicketConversation({
 
   return (
     <div className="space-y-6">
-      <ol className="space-y-4" aria-label="Mensagens do chamado">
-        <li>
+      <ol
+        className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface"
+        aria-label="Mensagens do chamado"
+      >
+        <li className="px-4 py-4 sm:px-5">
           <Message
             authorName={ticket.requester.name}
             createdAt={ticket.created_at}
@@ -62,11 +65,11 @@ export function TicketConversation({
           />
         </li>
         {comments.isPending ? (
-          <li>
+          <li className="px-4 py-4 sm:px-5">
             <SkeletonText lines={3} />
           </li>
         ) : comments.isError ? (
-          <li>
+          <li className="px-4 sm:px-5">
             <ErrorState
               title="Não foi possível carregar os comentários."
               description={getErrorMessage(comments.error)}
@@ -75,22 +78,26 @@ export function TicketConversation({
               className="py-6"
             />
           </li>
+        ) : comments.data.length === 0 ? (
+          <li className="px-4 py-5 text-sm text-secondary sm:px-5">
+            <p className="font-medium text-text">Nenhuma resposta ainda.</p>
+            <p>As mensagens da equipe de suporte aparecerão aqui.</p>
+          </li>
         ) : (
           comments.data.map((comment) => (
-            <li key={comment.id}>
+            <li
+              key={comment.id}
+              className={cx(
+                'px-4 py-4 sm:px-5',
+                // Nota interna: fundo âmbar suave e filete à esquerda (além do rótulo com cadeado).
+                comment.is_internal && 'border-l-2 border-l-warning bg-warning-soft',
+              )}
+            >
               <CommentMessage comment={comment} />
             </li>
           ))
         )}
       </ol>
-
-      {comments.isSuccess && comments.data.length === 0 ? (
-        <EmptyState
-          title="Nenhuma resposta ainda."
-          description="As mensagens da equipe de suporte aparecerão aqui."
-          className="py-6"
-        />
-      ) : null}
 
       {isClosed ? (
         <p className="rounded-md border border-border bg-surface-hover px-4 py-3 text-sm text-text">
@@ -129,20 +136,19 @@ interface MessageProps {
 
 function Message({ authorName, createdAt, content, isInternal = false, badge }: MessageProps) {
   return (
-    <article
-      className={cx(
-        'flex gap-3 rounded-lg border p-4',
-        isInternal ? 'border-warning/40 bg-warning-soft' : 'border-border bg-surface',
-      )}
-    >
+    <article className="flex gap-3">
       <Avatar name={authorName} size="sm" />
       <div className="min-w-0 flex-1 space-y-1">
         <header className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
           <span className="text-sm font-medium text-text">{authorName}</span>
-          <time dateTime={createdAt} title={formatDateTime(createdAt)} className="text-xs text-secondary">
+          <time
+            dateTime={createdAt}
+            title={formatDateTime(createdAt)}
+            className="text-xs text-secondary"
+          >
             {formatRelative(createdAt)}
           </time>
-          {badge ? <span className="text-xs text-secondary">· {badge}</span> : null}
+          {badge ? <Badge withDot={false}>{badge}</Badge> : null}
           {isInternal ? (
             <span className="inline-flex items-center gap-1 text-xs font-medium text-text">
               <Lock aria-hidden="true" className="size-3 text-warning" />
@@ -183,9 +189,7 @@ function CommentForm({ ticketId, isStaff, insertText, onTextInserted }: CommentF
   useEffect(() => {
     if (!insertText) return
     const current = getValues('content').trim()
-    setValue('content', current ? `${current}
-
-${insertText}` : insertText, {
+    setValue('content', current ? `${current}\n\n${insertText}` : insertText, {
       shouldDirty: true,
     })
     setFocus('content')

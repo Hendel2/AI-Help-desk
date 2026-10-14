@@ -6,6 +6,7 @@ import type { FieldPath } from 'react-hook-form'
 import { useNavigate } from 'react-router'
 import { z } from 'zod'
 
+import { PageHeader } from '@/components/PageHeader'
 import { FileUpload } from '@/components/FileUpload'
 import { Button } from '@/components/ui/Button'
 import { ButtonLink } from '@/components/ui/ButtonLink'
@@ -170,10 +171,7 @@ ${values.description ?? ''}`, {
         Voltar
       </ButtonLink>
 
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold text-text">Novo chamado</h1>
-        <p className="text-sm text-secondary">Leva menos de um minuto.</p>
-      </header>
+      <PageHeader title="Novo chamado" description="Leva menos de um minuto." />
 
       <ol className="flex gap-2" aria-label="Etapas">
         {STEPS.map((item, index) => {
@@ -284,7 +282,7 @@ ${values.description ?? ''}`, {
               label="Escolher arquivos"
               multiple
               accept={ATTACHMENT_ACCEPT}
-              hint={`Imagens, PDF, Office ou texto · até ${MAX_ATTACHMENT_MB} MB cada.`}
+              hint={`Imagens, PDF, Office ou texto, até ${MAX_ATTACHMENT_MB} MB cada.`}
               onFilesSelected={(selected) => {
                 const problems = selected.map(checkAttachment).filter((problem) => problem !== null)
                 setFileErrors(problems)

@@ -108,10 +108,10 @@ export function KnowledgeArticlePage() {
           {data.status !== 'PUBLISHED' ? (
             <Badge tone="neutral">{ARTICLE_STATUS_LABELS[data.status]}</Badge>
           ) : null}
-          {data.category ? <span>{data.category.name}</span> : null}
-          {data.author ? <span>· por {data.author.name}</span> : null}
+          {data.category ? <Badge withDot={false}>{data.category.name}</Badge> : null}
           <span>
-            · atualizado em <time dateTime={data.updated_at}>{formatDateTime(data.updated_at)}</time>
+            {data.author ? `Escrito por ${data.author.name}, atualizado em ` : 'Atualizado em '}
+            <time dateTime={data.updated_at}>{formatDateTime(data.updated_at)}</time>
           </span>
         </p>
         {data.summary ? <p className="text-text">{data.summary}</p> : null}

@@ -1,5 +1,6 @@
 import { Plus } from 'lucide-react'
 
+import { PageHeader } from '@/components/PageHeader'
 import { EmptyState } from '@/components/EmptyState'
 import { ErrorState } from '@/components/ErrorState'
 import { Button } from '@/components/ui/Button'
@@ -33,15 +34,15 @@ export function TicketsPage({ scope }: { scope: TicketScope }) {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold text-text">{title}</h1>
-          <p className="text-sm text-secondary">{description}</p>
-        </div>
-        <ButtonLink to="/chamados/novo" icon={<Plus aria-hidden="true" className="size-4" />}>
-          Novo chamado
-        </ButtonLink>
-      </header>
+      <PageHeader
+        title={title}
+        description={description}
+        actions={
+          <ButtonLink to="/chamados/novo" icon={<Plus aria-hidden="true" className="size-4" />}>
+            Novo chamado
+          </ButtonLink>
+        }
+      />
 
       <TicketFilters
         params={params}

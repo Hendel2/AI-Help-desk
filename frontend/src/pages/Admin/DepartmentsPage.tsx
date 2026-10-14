@@ -80,9 +80,11 @@ export function DepartmentsPage() {
               <div className="min-w-0 flex-1">
                 <p className="font-medium text-text">{department.name}</p>
                 <p className="truncate text-sm text-secondary">
-                  {department.description ?? 'Sem descrição'} ·{' '}
-                  {department.user_count === 1 ? '1 usuário' : `${department.user_count} usuários`}
+                  {department.description ?? 'Sem descrição'}
                 </p>
+              </div>
+              <div className="shrink-0 text-sm text-secondary tabular-nums">
+                {department.user_count === 1 ? '1 usuário' : `${department.user_count} usuários`}
               </div>
               <Button
                 size="sm"

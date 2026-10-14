@@ -7,12 +7,29 @@
       name="description"
       content="AI Help Desk: plataforma de Help Desk de TI multiempresa com assistência de inteligência artificial."
     />
-    <link
-      rel="icon"
-      type="image/svg+xml"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230F172A'/%3E%3C/svg%3E"
-    />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#f3f4f2" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0f1413" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>AI Help Desk</title>
+    <script>
+      // Aplica o tema antes do React para não piscar o tema errado.
+      // Mesma regra de src/features/theme/themeStorage.ts (chave e valores).
+      ;(function () {
+        var theme = 'light'
+        try {
+          var stored = localStorage.getItem('ai-helpdesk.theme')
+          var prefersDark =
+            typeof window.matchMedia === 'function' &&
+            window.matchMedia('(prefers-color-scheme: dark)').matches
+          theme = stored === 'dark' || (stored !== 'light' && prefersDark) ? 'dark' : 'light'
+        } catch (error) {
+          // Sem storage: segue o padrão claro.
+        }
+        document.documentElement.dataset.theme = theme
+        document.documentElement.style.colorScheme = theme
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

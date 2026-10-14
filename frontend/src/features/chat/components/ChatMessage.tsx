@@ -1,7 +1,8 @@
-import { Bot, BookOpen, ThumbsDown, ThumbsUp } from 'lucide-react'
+import { BookOpen, ThumbsDown, ThumbsUp } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router'
 
+import { BrandMark } from '@/components/BrandMark'
 import { Avatar } from '@/components/ui/Avatar'
 import { cx, FOCUS_RING } from '@/components/ui/styles'
 import { useToast } from '@/components/ui/useToast'
@@ -31,19 +32,14 @@ export function ChatMessage({ message, userName }: ChatMessageProps) {
       {isUser ? (
         <Avatar name={userName} size="sm" />
       ) : (
-        <span
-          aria-hidden="true"
-          className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary"
-        >
-          <Bot className="size-4" />
-        </span>
+        <BrandMark withName={false} className="size-8 shrink-0 justify-center" />
       )}
       <div className={cx('max-w-[85%] space-y-2 sm:max-w-[75%]', isUser && 'items-end text-right')}>
         <p className="text-xs font-medium text-secondary">{isUser ? 'Você' : 'Assistente de TI'}</p>
         <div
           className={cx(
             'rounded-lg px-4 py-3 text-left text-sm break-words whitespace-pre-line',
-            isUser ? 'bg-primary text-surface' : 'border border-border bg-surface text-text',
+            isUser ? 'bg-primary-soft text-text' : 'border border-border bg-surface text-text',
           )}
         >
           {message.content}

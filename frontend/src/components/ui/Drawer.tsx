@@ -30,7 +30,7 @@ export function Drawer({ isOpen, onClose, title, children }: DrawerProps) {
         aria-label="Fechar navegação"
         tabIndex={-1}
         onClick={onClose}
-        className="absolute inset-0 cursor-default bg-text/40"
+        className="absolute inset-0 cursor-default bg-overlay transition-opacity duration-200 motion-reduce:transition-none starting:opacity-0"
       />
       <div
         ref={panelRef}
@@ -38,9 +38,9 @@ export function Drawer({ isOpen, onClose, title, children }: DrawerProps) {
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="relative flex h-full w-72 max-w-[85%] flex-col border-r border-border bg-surface"
+        className="relative flex h-full w-72 max-w-[85%] flex-col border-r border-border bg-background shadow-overlay transition-transform duration-200 ease-out motion-reduce:transition-none starting:-translate-x-full"
       >
-        <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
+        <div className="flex h-14 items-center justify-between gap-2 px-5">
           <h2 id={titleId} className="text-sm font-semibold text-text">
             {title}
           </h2>

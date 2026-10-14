@@ -27,11 +27,8 @@ export function Pagination({ page, pages, total, onPageChange, className }: Pagi
       aria-label="Paginação"
       className={cx('flex flex-wrap items-center justify-between gap-3', className)}
     >
-      <p className="text-sm text-secondary">
-        Página <span className="font-medium text-text">{page}</span> de {pages} · {total}{' '}
-        resultados
-      </p>
-      <div className="flex gap-2">
+      <p className="text-sm text-secondary tabular-nums">{total} resultados</p>
+      <div className="flex items-center gap-2">
         <Button
           variant="secondary"
           size="sm"
@@ -41,6 +38,9 @@ export function Pagination({ page, pages, total, onPageChange, className }: Pagi
         >
           Anterior
         </Button>
+        <span className="px-1 text-sm text-secondary tabular-nums">
+          Página <span className="font-medium text-text">{page}</span> de {pages}
+        </span>
         <Button
           variant="secondary"
           size="sm"

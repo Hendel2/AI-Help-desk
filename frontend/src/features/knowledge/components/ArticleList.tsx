@@ -1,4 +1,3 @@
-import { Star } from 'lucide-react'
 import { Link } from 'react-router'
 
 import { Badge } from '@/components/ui/Badge'
@@ -21,17 +20,21 @@ export function ArticleList({ articles }: { articles: ArticleListItem[] }) {
             >
               {article.title}
             </Link>
-            {article.is_featured ? (
-              <Star aria-label="Destacado" className="size-4 fill-warning text-warning" />
-            ) : null}
+            {/* Destaque é informação, não alerta: etiqueta neutra (âmbar fica para prazo). */}
+            {article.is_featured ? <Badge withDot={false}>Em destaque</Badge> : null}
             {article.status !== 'PUBLISHED' ? (
               <Badge tone="neutral">{ARTICLE_STATUS_LABELS[article.status]}</Badge>
             ) : null}
           </div>
           {article.summary ? <p className="text-sm text-secondary">{article.summary}</p> : null}
-          <p className="text-xs text-secondary">
-            {article.category ? `${article.category.name} · ` : ''}
-            Atualizado <time dateTime={article.updated_at}>{formatRelative(article.updated_at)}</time>
+          <p className="flex flex-wrap gap-x-3 text-xs text-secondary">
+            {article.category ? (
+              <span className="font-medium text-text">{article.category.name}</span>
+            ) : null}
+            <span>
+              Atualizado{' '}
+              <time dateTime={article.updated_at}>{formatRelative(article.updated_at)}</time>
+            </span>
           </p>
         </li>
       ))}

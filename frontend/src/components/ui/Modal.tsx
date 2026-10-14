@@ -50,7 +50,7 @@ export function Modal({
         aria-label="Fechar"
         tabIndex={-1}
         onClick={onClose}
-        className="absolute inset-0 cursor-default bg-text/40"
+        className="absolute inset-0 cursor-default bg-overlay transition-opacity duration-150 motion-reduce:transition-none starting:opacity-0"
       />
       <div
         ref={panelRef}
@@ -60,19 +60,20 @@ export function Modal({
         aria-describedby={description ? descriptionId : undefined}
         tabIndex={-1}
         className={cx(
-          'relative w-full rounded-lg border border-border bg-surface shadow-sm',
+          'relative w-full rounded-xl border border-border bg-surface-raised shadow-overlay',
+          'transition duration-150 ease-out motion-reduce:transition-none starting:translate-y-2 starting:opacity-0',
           SIZES[size],
         )}
       >
         {/* <div>, não <header>: o modal fica no <body> e um <header> ali viraria um
             segundo landmark "banner" ao lado da barra superior. */}
-        <div className="flex items-start justify-between gap-4 border-b border-border px-4 py-3">
+        <div className="flex items-start justify-between gap-4 px-5 pt-5 pb-1">
           <div className="space-y-1">
-            <h2 id={titleId} className="text-sm font-semibold text-text">
+            <h2 id={titleId} className="text-base font-semibold tracking-tight text-text">
               {title}
             </h2>
             {description ? (
-              <p id={descriptionId} className="text-xs text-secondary">
+              <p id={descriptionId} className="text-sm text-secondary">
                 {description}
               </p>
             ) : null}
@@ -89,11 +90,11 @@ export function Modal({
             <X aria-hidden="true" className="size-4" />
           </button>
         </div>
-        {children ? <div className="px-4 py-4 text-sm text-text">{children}</div> : null}
+        {children ? <div className="px-5 py-4 text-sm text-text">{children}</div> : null}
         {footer ? (
-          <footer className="flex flex-col-reverse gap-2 border-t border-border px-4 py-3 sm:flex-row sm:justify-end">
+          <div className="flex flex-col-reverse gap-2 px-5 pt-2 pb-5 sm:flex-row sm:justify-end">
             {footer}
-          </footer>
+          </div>
         ) : null}
       </div>
     </div>,

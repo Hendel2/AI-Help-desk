@@ -1,3 +1,4 @@
+import { ChevronDown } from 'lucide-react'
 import type { ComponentProps } from 'react'
 import { useId } from 'react'
 
@@ -48,20 +49,27 @@ export function Select({
       optional={optional}
       className={containerClassName}
     >
-      <select
-        id={selectId}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={error ? errorId : hint ? hintId : undefined}
-        className={cx(FIELD_BASE, 'pr-8', className)}
-        {...rest}
-      >
-        {placeholder ? <option value="">{placeholder}</option> : null}
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+      {/* Seta própria (appearance-none): igual nos dois temas e em todos os navegadores. */}
+      <div className="relative">
+        <select
+          id={selectId}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? errorId : hint ? hintId : undefined}
+          className={cx(FIELD_BASE, 'appearance-none pr-9', className)}
+          {...rest}
+        >
+          {placeholder ? <option value="">{placeholder}</option> : null}
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <ChevronDown
+          aria-hidden="true"
+          className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-secondary"
+        />
+      </div>
     </Field>
   )
 }

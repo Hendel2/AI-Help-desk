@@ -2,6 +2,7 @@ import { Plus } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useState } from 'react'
 
+import { PageHeader } from '@/components/PageHeader'
 import { EmptyState } from '@/components/EmptyState'
 import { ErrorState } from '@/components/ErrorState'
 import { SearchBar } from '@/components/SearchBar'
@@ -27,22 +28,20 @@ export function KnowledgePage() {
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold text-text">Base de conhecimento</h1>
-          <p className="text-sm text-secondary">
-            Soluções para os problemas mais comuns, escritas pela equipe de TI.
-          </p>
-        </div>
-        {hasRole('ADMIN') ? (
-          <ButtonLink
-            to="/base-de-conhecimento/novo"
-            icon={<Plus aria-hidden="true" className="size-4" />}
-          >
-            Novo artigo
-          </ButtonLink>
-        ) : null}
-      </header>
+      <PageHeader
+        title="Base de conhecimento"
+        description="Soluções para os problemas mais comuns, escritas pela equipe de TI."
+        actions={
+          hasRole('ADMIN') ? (
+            <ButtonLink
+              to="/base-de-conhecimento/novo"
+              icon={<Plus aria-hidden="true" className="size-4" />}
+            >
+              Novo artigo
+            </ButtonLink>
+          ) : null
+        }
+      />
 
       <SearchBar
         label="Pesquisar na base de conhecimento"
@@ -62,9 +61,9 @@ export function KnowledgePage() {
                 aria-pressed={selected}
                 onClick={() => setCategoryId(category.id)}
                 className={cx(
-                  'min-h-9 rounded-full border px-3 py-1 text-sm transition-colors',
+                  'min-h-9 rounded-md border px-3 py-1 text-sm transition-colors',
                   selected
-                    ? 'border-primary bg-primary-soft font-medium text-primary'
+                    ? 'border-primary bg-primary-soft font-medium text-text'
                     : 'border-border bg-surface text-text hover:bg-surface-hover',
                   FOCUS_RING,
                 )}

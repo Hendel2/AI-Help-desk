@@ -12,10 +12,11 @@ import {
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 
+import { PageHeader } from '@/components/PageHeader'
 import { BarList } from '@/components/charts/BarList'
 import { ColumnChart } from '@/components/charts/ColumnChart'
 import { ErrorState } from '@/components/ErrorState'
-import { StatTile } from '@/components/StatTile'
+import { StatGroup, StatTile } from '@/components/StatTile'
 import { ButtonLink } from '@/components/ui/ButtonLink'
 import { Card } from '@/components/ui/Card'
 import { Select } from '@/components/ui/Select'
@@ -68,24 +69,24 @@ export function DashboardPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold text-text">Olá, {firstName}</h1>
-          <p className="text-sm text-secondary">{SUBTITLES[user.role]}</p>
-        </div>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <Select
-            label="Período"
-            options={PERIOD_OPTIONS}
-            value={String(days)}
-            onChange={(event) => setDays(Number(event.target.value))}
-            containerClassName="sm:w-44"
-          />
-          <ButtonLink to="/chamados/novo" icon={<Plus aria-hidden="true" className="size-4" />}>
-            Novo chamado
-          </ButtonLink>
-        </div>
-      </header>
+      <PageHeader
+        title={`Olá, ${firstName}`}
+        description={SUBTITLES[user.role]}
+        actions={
+          <>
+            <Select
+              label="Período"
+              options={PERIOD_OPTIONS}
+              value={String(days)}
+              onChange={(event) => setDays(Number(event.target.value))}
+              containerClassName="w-full sm:w-44"
+            />
+            <ButtonLink to="/chamados/novo" icon={<Plus aria-hidden="true" className="size-4" />}>
+              Novo chamado
+            </ButtonLink>
+          </>
+        }
+      />
 
       {metrics.isError ? (
         <ErrorState
@@ -95,9 +96,9 @@ export function DashboardPage() {
           isRetrying={metrics.isFetching}
         />
       ) : (
-        <section aria-label="Indicadores" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatGroup label="Indicadores">
           <Tiles role={user.role} metrics={metrics.data} periodCaption={periodCaption} />
-        </section>
+        </StatGroup>
       )}
 
       {user.role === 'USER' ? (
@@ -147,6 +148,9 @@ export function DashboardPage() {
           <Panel title="Chamados por categoria" query={tickets}>
             {(data) => <CategoryBars data={data} />}
           </Panel>
+          <Panel title="Atividade recente" query={tickets}>
+            {(data) => <ActivityFeed items={data.activity} />}
+          </Panel>
           <Card
             title="Evolução do SLA"
             action={
@@ -183,9 +187,6 @@ export function DashboardPage() {
           </Card>
           <Panel title="Desempenho dos técnicos" query={tickets}>
             {(data) => <TechnicianTable rows={data.technicians ?? []} />}
-          </Panel>
-          <Panel title="Atividade recente" query={tickets}>
-            {(data) => <ActivityFeed items={data.activity} />}
           </Panel>
         </div>
       ) : null}

@@ -6,6 +6,7 @@ import { formatDateTime, formatRelative } from '@/utils/format'
 
 import type { TicketListItem } from '../types'
 import { SLAIndicator } from './SLAIndicator'
+import { SLALine } from './SLALine'
 import { PriorityBadge, StatusBadge } from './TicketBadges'
 
 interface TicketTableProps {
@@ -62,6 +63,12 @@ export function TicketTable({ tickets, showRequester = false }: TicketTableProps
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap">
                   <SLAIndicator sla={ticket.sla} status={ticket.status} />
+                  <SLALine
+                    sla={ticket.sla}
+                    status={ticket.status}
+                    createdAt={ticket.created_at}
+                    className="mt-1.5 w-28"
+                  />
                 </td>
                 <td className="hidden px-4 py-3 text-secondary lg:table-cell">
                   {showRequester
@@ -86,6 +93,7 @@ export function TicketTable({ tickets, showRequester = false }: TicketTableProps
               <span className="text-xs text-secondary tabular-nums">{ticket.ticket_number}</span>
               <SLAIndicator sla={ticket.sla} status={ticket.status} className="text-xs" />
             </div>
+            <SLALine sla={ticket.sla} status={ticket.status} createdAt={ticket.created_at} />
             <Link to={`/chamados/${ticket.id}`} className={cx(LINK_CLASS, 'block')}>
               {ticket.title}
             </Link>
@@ -93,9 +101,13 @@ export function TicketTable({ tickets, showRequester = false }: TicketTableProps
               <StatusBadge status={ticket.status} />
               <PriorityBadge priority={ticket.priority} />
             </div>
-            <p className="text-xs text-secondary">
-              {showRequester ? ticket.requester.name : (ticket.technician?.name ?? 'Não atribuído')}{' '}
-              · <time dateTime={ticket.updated_at}>{formatRelative(ticket.updated_at)}</time>
+            <p className="flex flex-wrap justify-between gap-x-3 text-xs text-secondary">
+              <span>
+                {showRequester
+                  ? ticket.requester.name
+                  : (ticket.technician?.name ?? 'Não atribuído')}
+              </span>
+              <time dateTime={ticket.updated_at}>{formatRelative(ticket.updated_at)}</time>
             </p>
           </li>
         ))}

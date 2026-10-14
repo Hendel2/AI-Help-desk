@@ -3,7 +3,8 @@ import { useState } from 'react'
 
 import { BarList } from '@/components/charts/BarList'
 import { ErrorState } from '@/components/ErrorState'
-import { StatTile } from '@/components/StatTile'
+import { PageHeader } from '@/components/PageHeader'
+import { StatGroup, StatTile } from '@/components/StatTile'
 import { Card } from '@/components/ui/Card'
 import { Select } from '@/components/ui/Select'
 import { SkeletonText } from '@/components/ui/Skeleton'
@@ -34,21 +35,19 @@ export function ReportsPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold text-text">Indicadores</h1>
-          <p className="text-sm text-secondary">
-            Como a IA está ajudando o suporte e onde estão as oportunidades.
-          </p>
-        </div>
-        <Select
-          label="Período"
-          options={PERIOD_OPTIONS}
-          value={String(days)}
-          onChange={(event) => setDays(Number(event.target.value))}
-          containerClassName="sm:w-44"
-        />
-      </header>
+      <PageHeader
+        title="Indicadores"
+        description="Como a IA está ajudando o suporte e onde estão as oportunidades."
+        actions={
+          <Select
+            label="Período"
+            options={PERIOD_OPTIONS}
+            value={String(days)}
+            onChange={(event) => setDays(Number(event.target.value))}
+            containerClassName="w-full sm:w-44"
+          />
+        }
+      />
 
       {ai.isError ? (
         <ErrorState
@@ -58,7 +57,7 @@ export function ReportsPage() {
           isRetrying={ai.isFetching}
         />
       ) : (
-        <section aria-label="Assistente de TI" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatGroup label="Assistente de TI">
           <StatTile
             label="Conversas com o assistente"
             value={ai.data ? ai.data.conversations.toLocaleString('pt-BR') : null}
@@ -89,7 +88,7 @@ export function ReportsPage() {
             icon={ThumbsUp}
             isLoading={ai.isPending}
           />
-        </section>
+        </StatGroup>
       )}
 
       <AIInsightsCard query={ai} />

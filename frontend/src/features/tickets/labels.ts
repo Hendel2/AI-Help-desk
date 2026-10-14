@@ -56,7 +56,7 @@ export const PRIORITY_LABELS: Record<TicketPriority, string> = {
 
 export const PRIORITY_TONES: Record<TicketPriority, BadgeTone> = {
   LOW: 'neutral',
-  MEDIUM: 'info',
+  MEDIUM: 'neutral',
   HIGH: 'warning',
   CRITICAL: 'danger',
 }

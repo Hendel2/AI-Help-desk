@@ -7,6 +7,7 @@ import { RouterProvider } from 'react-router/dom'
 
 import { ToastProvider } from '@/components/ui/ToastProvider'
 import { AuthProvider } from '@/features/auth/AuthProvider'
+import { ThemeProvider } from '@/features/theme/ThemeProvider'
 
 export function createTestQueryClient(): QueryClient {
   return new QueryClient({
@@ -46,9 +47,11 @@ export function renderWithProviders(
     queryClient,
     router,
     ...render(
-      <QueryClientProvider client={queryClient}>
-        <ToastProvider>{withAuth ? <AuthProvider>{tree}</AuthProvider> : tree}</ToastProvider>
-      </QueryClientProvider>,
+      <ThemeProvider>
+        <QueryClientProvider client={queryClient}>
+          <ToastProvider>{withAuth ? <AuthProvider>{tree}</AuthProvider> : tree}</ToastProvider>
+        </QueryClientProvider>
+      </ThemeProvider>,
     ),
   }
 }

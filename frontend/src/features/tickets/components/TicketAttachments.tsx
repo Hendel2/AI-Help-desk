@@ -75,7 +75,7 @@ export function TicketAttachments({ ticket }: { ticket: Ticket }) {
             multiple
             accept={ATTACHMENT_ACCEPT}
             disabled={upload.isPending}
-            hint={`Imagens, PDF, Office ou texto · até ${MAX_ATTACHMENT_MB} MB cada.`}
+            hint={`Imagens, PDF, Office ou texto, até ${MAX_ATTACHMENT_MB} MB cada.`}
             onFilesSelected={(files) => void handleFiles(files)}
           />
         ) : null}
@@ -107,7 +107,7 @@ function AttachmentRow({ ticketId, attachment }: { ticketId: number; attachment:
           {attachment.file_name}
         </p>
         <p className="text-xs text-secondary">
-          {formatFileSize(attachment.file_size)} · {attachment.uploader.name}
+          {formatFileSize(attachment.file_size)}, enviado por {attachment.uploader.name}
         </p>
       </div>
       <Button

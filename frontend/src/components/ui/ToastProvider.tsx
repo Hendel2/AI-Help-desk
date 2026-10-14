@@ -63,7 +63,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
   return (
     <div
       className={cx(
-        'pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-lg border bg-surface px-4 py-3 shadow-sm',
+        'pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-lg border bg-surface-raised px-4 py-3 shadow-overlay transition duration-200 ease-out motion-reduce:transition-none starting:translate-y-2 starting:opacity-0',
         border,
       )}
     >

@@ -26,14 +26,16 @@ export function Card({ title, action, className, children }: CardProps) {
       className={cx('rounded-lg border border-border bg-surface', className)}
     >
       {title ? (
-        <header className="flex items-center justify-between gap-4 border-b border-border px-4 py-3">
+        <header className="flex min-h-12 items-center justify-between gap-4 px-4 pt-3 sm:px-5">
           <h2 id={titleId} className="text-sm font-semibold text-text">
             {title}
           </h2>
           {action}
         </header>
       ) : null}
-      <div className="p-4">{children}</div>
+      <div className={cx('px-4 pb-4 sm:px-5 sm:pb-5', title ? 'pt-2' : 'pt-4 sm:pt-5')}>
+        {children}
+      </div>
     </section>
   )
 }

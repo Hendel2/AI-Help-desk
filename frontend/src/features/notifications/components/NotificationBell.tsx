@@ -82,7 +82,7 @@ export function NotificationBell() {
         {count > 0 ? (
           <span
             aria-hidden="true"
-            className="absolute top-1 right-1 flex min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[0.625rem] leading-4 font-semibold text-surface"
+            className="absolute top-1 right-1 flex min-w-4 items-center justify-center rounded-full bg-danger px-1 text-2xs font-semibold text-on-danger tabular-nums"
           >
             {count > 9 ? '9+' : count}
           </span>
@@ -118,7 +118,7 @@ function NotificationPanel({ id, hasUnread, onNavigate }: NotificationPanelProps
     <section
       id={id}
       aria-label="Notificações"
-      className="fixed inset-x-2 top-14 z-40 rounded-lg border border-border bg-surface shadow-sm sm:absolute sm:inset-x-auto sm:top-full sm:right-0 sm:mt-2 sm:w-96"
+      className="fixed inset-x-2 top-14 z-40 rounded-lg border border-border bg-surface-raised shadow-overlay transition duration-150 ease-out motion-reduce:transition-none starting:-translate-y-1 starting:opacity-0 sm:absolute sm:inset-x-auto sm:top-full sm:right-0 sm:mt-2 sm:w-96"
     >
       <header className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
         <h2 className="text-sm font-semibold text-text">Notificações</h2>

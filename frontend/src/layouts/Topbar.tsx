@@ -1,13 +1,12 @@
-import { LogOut, Menu } from 'lucide-react'
-import { useNavigate } from 'react-router'
+import { Menu as MenuIcon } from 'lucide-react'
 
-import { Avatar } from '@/components/ui/Avatar'
-import { Button } from '@/components/ui/Button'
+import { BrandMark } from '@/components/BrandMark'
 import { cx, FOCUS_RING } from '@/components/ui/styles'
-import { ROLE_LABELS } from '@/features/auth/roleLabels'
 import type { CurrentUser } from '@/features/auth/types'
-import { useAuth } from '@/features/auth/useAuth'
 import { NotificationBell } from '@/features/notifications/components/NotificationBell'
+import { ThemeMenu } from '@/features/theme/components/ThemeMenu'
+
+import { UserMenu } from './UserMenu'
 
 interface TopbarProps {
   user: CurrentUser
@@ -15,45 +14,29 @@ interface TopbarProps {
   onOpenMenu: () => void
 }
 
-/** Barra superior (§38): navegação no mobile, notificações e usuário. */
+/** Barra superior (§38): navegação no mobile, tema, notificações e conta. */
 export function Topbar({ user, onOpenMenu }: TopbarProps) {
-  const { logout } = useAuth()
-  const navigate = useNavigate()
-
-  const handleLogout = () => {
-    logout()
-    void navigate('/login', { replace: true })
-  }
-
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-surface px-4">
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-border bg-background/90 px-4 backdrop-blur-sm md:px-6 lg:px-8">
       <button
         type="button"
         onClick={onOpenMenu}
         aria-label="Abrir navegação"
         className={cx(
-          'rounded-md p-2 text-secondary transition-colors hover:bg-surface-hover hover:text-text lg:hidden',
+          '-ml-2 rounded-md p-2 text-secondary transition-colors hover:bg-surface-hover hover:text-text lg:hidden',
           FOCUS_RING,
         )}
       >
-        <Menu aria-hidden="true" className="size-5" />
+        <MenuIcon aria-hidden="true" className="size-5" />
       </button>
 
-      <span className="font-semibold text-text lg:hidden">AI Help Desk</span>
+      <BrandMark className="lg:hidden" />
 
-      <div className="ml-auto flex items-center gap-3">
+      <div className="ml-auto flex items-center gap-1">
+        <ThemeMenu />
         <NotificationBell />
-        <div className="flex items-center gap-2.5">
-          <Avatar name={user.name} src={user.avatar} size="sm" />
-          <span className="hidden flex-col leading-tight sm:flex">
-            <span className="text-sm font-medium text-text">{user.name}</span>
-            <span className="text-xs text-secondary">{ROLE_LABELS[user.role]}</span>
-          </span>
-        </div>
-        <Button variant="ghost" size="sm" icon={<LogOut aria-hidden="true" className="size-4" />} onClick={handleLogout}>
-          <span className="hidden sm:inline">Sair</span>
-          <span className="sr-only sm:hidden">Sair da conta</span>
-        </Button>
+        <div aria-hidden="true" className="mx-2 h-6 w-px bg-border" />
+        <UserMenu user={user} />
       </div>
     </header>
   )

@@ -26,6 +26,8 @@ beforeEach(() => {
 
 afterEach(() => {
   clearTokens()
+  window.localStorage.clear()
+  delete document.documentElement.dataset.theme
 })
 
 async function fillPasswords(current: string, next: string, confirm: string) {
@@ -79,5 +81,17 @@ describe('ProfilePage', () => {
     await fillPasswords('errada', 'nova-senha-1', 'nova-senha-1')
 
     expect(await screen.findByText('A senha atual está incorreta.')).toBeInTheDocument()
+  })
+
+  it('troca o tema pela seção Aparência', async () => {
+    const user = userEvent.setup()
+    renderWithProviders(<ProfilePage />, { withAuth: true })
+
+    const dark = await screen.findByRole('radio', { name: 'Escuro' })
+    expect(screen.getByRole('radio', { name: 'Do sistema' })).toBeChecked()
+    await user.click(dark)
+
+    expect(dark).toBeChecked()
+    expect(document.documentElement.dataset.theme).toBe('dark')
   })
 })

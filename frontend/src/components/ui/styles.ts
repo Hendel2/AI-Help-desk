@@ -12,7 +12,7 @@ export const FIELD_FOCUS =
   'focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none'
 
 /** Base visual de input, select e textarea. */
-export const FIELD_BASE = `w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text placeholder:text-secondary transition-colors ${FIELD_FOCUS} aria-[invalid=true]:border-danger disabled:cursor-not-allowed disabled:bg-surface-hover disabled:text-secondary`
+export const FIELD_BASE = `w-full rounded-md border border-border-strong bg-surface px-3 py-2 text-sm text-text placeholder:text-secondary transition-colors ${FIELD_FOCUS} aria-[invalid=true]:border-danger disabled:cursor-not-allowed disabled:bg-surface-hover disabled:text-secondary`
 
 /**
  * Texto secundário dentro de um item cujo fundo muda no hover/foco (`group`).

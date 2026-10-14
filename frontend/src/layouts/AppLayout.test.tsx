@@ -137,12 +137,16 @@ describe('AppLayout', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('encerra a sessão pelo botão Sair', async () => {
+  it('encerra a sessão pelo menu da conta', async () => {
     const user = userEvent.setup()
     renderLayout('USER')
     await screen.findByRole('heading', { name: 'Meu perfil' })
 
-    await user.click(screen.getByRole('button', { name: /Sair/ }))
+    const account = screen.getByRole('button', { name: /Conta de/ })
+    expect(account).toHaveAttribute('aria-expanded', 'false')
+    await user.click(account)
+    expect(account).toHaveAttribute('aria-expanded', 'true')
+    await user.click(screen.getByRole('menuitem', { name: 'Sair' }))
 
     expect(await screen.findByRole('heading', { name: 'Entrar' })).toBeInTheDocument()
     expect(window.localStorage.getItem('ai-helpdesk.access_token')).toBeNull()

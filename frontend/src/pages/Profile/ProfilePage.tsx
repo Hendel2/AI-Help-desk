@@ -1,6 +1,9 @@
+import { PageHeader } from '@/components/PageHeader'
+import { Card } from '@/components/ui/Card'
 import { ChangePasswordForm } from '@/features/auth/components/ChangePasswordForm'
 import { ROLE_LABELS } from '@/features/auth/roleLabels'
 import { useAuth } from '@/features/auth/useAuth'
+import { AppearanceSettings } from '@/features/theme/components/AppearanceSettings'
 
 /** Perfil do usuário autenticado. Sair da conta fica na barra superior. */
 export function ProfilePage() {
@@ -18,19 +21,23 @@ export function ProfilePage() {
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold text-text">Meu perfil</h1>
-        <p className="text-sm text-secondary">Dados da sua conta no AI Help Desk.</p>
-      </header>
+      <PageHeader title="Meu perfil" description="Dados da sua conta no AI Help Desk." />
 
-      <dl className="divide-y divide-border border-y border-border">
-        {fields.map(({ label, value }) => (
-          <div key={label} className="flex flex-col gap-1 py-3 sm:flex-row sm:gap-4">
-            <dt className="text-sm text-secondary sm:w-48">{label}</dt>
-            <dd className="text-sm font-medium text-text">{value}</dd>
-          </div>
-        ))}
-      </dl>
+      <Card title="Conta">
+        <dl className="divide-y divide-border">
+          {fields.map(({ label, value }) => (
+            <div
+              key={label}
+              className="flex flex-col gap-1 py-3 first:pt-0 last:pb-0 sm:flex-row sm:gap-4"
+            >
+              <dt className="text-sm text-secondary sm:w-40">{label}</dt>
+              <dd className="text-sm font-medium text-text">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      </Card>
+
+      <AppearanceSettings />
 
       <ChangePasswordForm />
     </div>

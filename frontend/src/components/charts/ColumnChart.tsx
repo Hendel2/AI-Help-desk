@@ -98,7 +98,7 @@ export function ColumnChart({
           {active ? (
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full rounded-md border border-border bg-surface px-2 py-1 text-xs whitespace-nowrap text-text shadow-sm"
+              className="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full rounded-md border border-border bg-surface-raised px-2 py-1 text-xs whitespace-nowrap text-text shadow-overlay"
             >
               <span className="text-secondary">{active.fullLabel}: </span>
               <span className="font-medium tabular-nums">

@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react'
 import { Link, useParams } from 'react-router'
 
 import { ErrorState } from '@/components/ErrorState'
+import { PageHeader } from '@/components/PageHeader'
 import { Skeleton, SkeletonText } from '@/components/ui/Skeleton'
 import { cx, FOCUS_RING } from '@/components/ui/styles'
 import { Tabs } from '@/components/ui/Tabs'
@@ -88,14 +89,16 @@ export function TicketDetailsPage() {
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
       {backLink}
-      <header className="space-y-2">
-        <p className="text-sm text-secondary tabular-nums">{data.ticket_number}</p>
-        <h1 className="text-2xl font-semibold break-words text-text">{data.title}</h1>
-        <div className="flex flex-wrap gap-2">
-          <StatusBadge status={data.status} />
-          <PriorityBadge priority={data.priority} />
-        </div>
-      </header>
+      <PageHeader
+        meta={<p className="text-sm text-secondary tabular-nums">{data.ticket_number}</p>}
+        title={data.title}
+        description={
+          <span className="flex flex-wrap gap-2 pt-1">
+            <StatusBadge status={data.status} />
+            <PriorityBadge priority={data.priority} />
+          </span>
+        }
+      />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
         <Tabs
