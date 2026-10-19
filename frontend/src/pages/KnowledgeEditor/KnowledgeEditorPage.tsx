@@ -160,7 +160,7 @@ export function KnowledgeEditorPage() {
 
       <form
         noValidate
-        className="space-y-4 rounded-lg border border-border bg-surface p-4 sm:p-6"
+        className="space-y-4 rounded-xl border border-border bg-surface p-4 sm:p-6"
         onSubmit={(event) => {
           void handleSubmit(onSubmit)(event)
         }}

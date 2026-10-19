@@ -53,7 +53,10 @@ export function DepartmentsPage() {
         title="Departamentos"
         description="Áreas da empresa às quais os usuários pertencem."
         action={
-          <Button icon={<Plus aria-hidden="true" className="size-4" />} onClick={() => setEditing('new')}>
+          <Button
+            icon={<Plus aria-hidden="true" className="size-4" />}
+            onClick={() => setEditing('new')}
+          >
             Novo departamento
           </Button>
         }
@@ -74,7 +77,7 @@ export function DepartmentsPage() {
           description="Crie departamentos como TI, Financeiro e RH para organizar os usuários."
         />
       ) : (
-        <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
+        <ul className="divide-y divide-border rounded-xl border border-border bg-surface">
           {departments.data.map((department) => (
             <li key={department.id} className="flex items-center gap-4 px-4 py-3">
               <div className="min-w-0 flex-1">

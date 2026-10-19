@@ -24,15 +24,23 @@ const LINK_CLASS = cx('rounded-sm font-medium text-text hover:text-primary', FOC
 export function TicketTable({ tickets, showRequester = false }: TicketTableProps) {
   return (
     <>
-      <div className="hidden overflow-x-auto rounded-lg border border-border bg-surface md:block">
+      <div className="hidden overflow-x-auto rounded-xl border border-border bg-surface md:block">
         <table className="w-full text-left text-sm">
           <caption className="sr-only">Chamados</caption>
           <thead className="border-b border-border text-xs text-secondary">
             <tr>
-              <th scope="col" className="px-4 py-3 font-medium">Chamado</th>
-              <th scope="col" className="px-4 py-3 font-medium">Prioridade</th>
-              <th scope="col" className="px-4 py-3 font-medium">Status</th>
-              <th scope="col" className="px-4 py-3 font-medium">SLA</th>
+              <th scope="col" className="px-4 py-3 font-medium">
+                Chamado
+              </th>
+              <th scope="col" className="px-4 py-3 font-medium">
+                Prioridade
+              </th>
+              <th scope="col" className="px-4 py-3 font-medium">
+                Status
+              </th>
+              <th scope="col" className="px-4 py-3 font-medium">
+                SLA
+              </th>
               <th scope="col" className="hidden px-4 py-3 font-medium lg:table-cell">
                 {showRequester ? 'Solicitante' : 'Técnico'}
               </th>
@@ -86,7 +94,7 @@ export function TicketTable({ tickets, showRequester = false }: TicketTableProps
         </table>
       </div>
 
-      <ul className="divide-y divide-border rounded-lg border border-border bg-surface md:hidden">
+      <ul className="divide-y divide-border rounded-xl border border-border bg-surface md:hidden">
         {tickets.map((ticket) => (
           <li key={ticket.id} className="space-y-2 p-4">
             <div className="flex items-center justify-between gap-2">
@@ -121,7 +129,7 @@ export function TicketTableSkeleton({ rows = 6 }: { rows?: number }) {
   return (
     <div
       aria-busy="true"
-      className="divide-y divide-border rounded-lg border border-border bg-surface"
+      className="divide-y divide-border rounded-xl border border-border bg-surface"
     >
       <span className="sr-only">Carregando chamados…</span>
       {Array.from({ length: rows }, (_, index) => (

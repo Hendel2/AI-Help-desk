@@ -16,6 +16,7 @@ import {
   KnowledgeEditorPage,
   KnowledgePage,
   NewTicketPage,
+  NotificationsPage,
   ProfilePage,
   ReportsPage,
   SettingsPage,
@@ -57,6 +58,7 @@ export const router = createBrowserRouter([
       { path: 'chamados/novo', element: <NewTicketPage /> },
       { path: 'chamados/:ticketId', element: <TicketDetailsPage /> },
       { path: 'assistente', element: <ChatPage /> },
+      { path: 'notificacoes', element: <NotificationsPage /> },
       { path: 'base-de-conhecimento', element: <KnowledgePage /> },
       {
         path: 'base-de-conhecimento/novo',

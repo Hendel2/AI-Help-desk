@@ -98,7 +98,7 @@ export function ColumnChart({
           {active ? (
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full rounded-md border border-border bg-surface-raised px-2 py-1 text-xs whitespace-nowrap text-text shadow-overlay"
+              className="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full rounded-lg border border-border bg-surface-raised px-2 py-1 text-xs whitespace-nowrap text-text shadow-overlay"
             >
               <span className="text-secondary">{active.fullLabel}: </span>
               <span className="font-medium tabular-nums">
@@ -118,13 +118,19 @@ export function ColumnChart({
       </div>
 
       <details className="text-sm">
-        <summary className="cursor-pointer text-secondary hover:text-text">Ver dados em tabela</summary>
+        <summary className="cursor-pointer text-secondary hover:text-text">
+          Ver dados em tabela
+        </summary>
         <table id={tableId} className="mt-2 w-full text-left text-sm">
           <caption className="sr-only">{valueLabel}</caption>
           <thead className="text-xs text-secondary">
             <tr>
-              <th scope="col" className="py-1 font-medium">Período</th>
-              <th scope="col" className="py-1 text-right font-medium">{valueLabel}</th>
+              <th scope="col" className="py-1 font-medium">
+                Período
+              </th>
+              <th scope="col" className="py-1 text-right font-medium">
+                {valueLabel}
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">

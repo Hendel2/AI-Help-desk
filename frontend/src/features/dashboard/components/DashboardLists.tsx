@@ -16,11 +16,17 @@ export function RecentTicketsList({ tickets }: { tickets: RecentTicket[] }) {
     return <EmptyState title="Nenhum chamado ainda." className="py-6" />
   }
   return (
-    <ul className="-my-2 divide-y divide-border">
+    // @container: lado a lado só quando o painel comporta (no início ele pode ser estreito).
+    <ul className="@container -my-2 divide-y divide-border">
       {tickets.map((ticket) => (
-        <li key={ticket.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4">
+        <li
+          key={ticket.id}
+          className="flex flex-col gap-2 py-3 @lg:flex-row @lg:items-center @lg:gap-4"
+        >
           <div className="min-w-0 flex-1">
-            <span className="text-xs text-secondary tabular-nums">{ticket.ticket_number}</span>
+            <span className="text-xs whitespace-nowrap text-secondary tabular-nums">
+              {ticket.ticket_number}
+            </span>
             <Link to={`/chamados/${ticket.id}`} className={cx(LINK, 'block truncate text-sm')}>
               {ticket.title}
             </Link>
@@ -60,7 +66,10 @@ export function ActivityFeed({ items }: { items: ActivityItem[] }) {
                 <span className="text-secondary">: {newValue}</span>
               ) : null}{' '}
               em{' '}
-              <Link to={`/chamados/${item.ticket_id}`} className={cx(LINK, 'tabular-nums')}>
+              <Link
+                to={`/chamados/${item.ticket_id}`}
+                className={cx(LINK, 'whitespace-nowrap tabular-nums')}
+              >
                 {item.ticket_number}
               </Link>
             </p>
@@ -85,10 +94,18 @@ export function TechnicianTable({ rows }: { rows: TechnicianPerformance[] }) {
         <caption className="sr-only">Desempenho dos técnicos no período</caption>
         <thead className="text-xs text-secondary">
           <tr>
-            <th scope="col" className="px-4 py-2 font-medium">Técnico</th>
-            <th scope="col" className="px-4 py-2 text-right font-medium">Resolvidos</th>
-            <th scope="col" className="px-4 py-2 text-right font-medium">Tempo médio</th>
-            <th scope="col" className="px-4 py-2 text-right font-medium">Satisfação</th>
+            <th scope="col" className="px-4 py-2 font-medium">
+              Técnico
+            </th>
+            <th scope="col" className="px-4 py-2 text-right font-medium">
+              Resolvidos
+            </th>
+            <th scope="col" className="px-4 py-2 text-right font-medium">
+              Tempo médio
+            </th>
+            <th scope="col" className="px-4 py-2 text-right font-medium">
+              Satisfação
+            </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
@@ -99,10 +116,14 @@ export function TechnicianTable({ rows }: { rows: TechnicianPerformance[] }) {
               </th>
               <td className="px-4 py-2 text-right text-text tabular-nums">{row.resolved}</td>
               <td className="px-4 py-2 text-right text-text tabular-nums">
-                {row.avg_resolution_minutes === null ? '—' : formatMinutes(row.avg_resolution_minutes)}
+                {row.avg_resolution_minutes === null
+                  ? '—'
+                  : formatMinutes(row.avg_resolution_minutes)}
               </td>
               <td className="px-4 py-2 text-right text-text tabular-nums">
-                {row.satisfaction_avg === null ? '—' : `${row.satisfaction_avg.toFixed(1).replace('.', ',')} / 5`}
+                {row.satisfaction_avg === null
+                  ? '—'
+                  : `${row.satisfaction_avg.toFixed(1).replace('.', ',')} / 5`}
               </td>
             </tr>
           ))}

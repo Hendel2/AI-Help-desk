@@ -10,7 +10,7 @@ import type { ArticleListItem } from '../types'
 /** Lista de artigos com divisórias (coleção = lista, não grade de cards). */
 export function ArticleList({ articles }: { articles: ArticleListItem[] }) {
   return (
-    <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
+    <ul className="divide-y divide-border rounded-xl border border-border bg-surface">
       {articles.map((article) => (
         <li key={article.id} className="space-y-1 p-4">
           <div className="flex flex-wrap items-center gap-2">

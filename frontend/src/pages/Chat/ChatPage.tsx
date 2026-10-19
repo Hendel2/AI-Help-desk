@@ -139,7 +139,7 @@ export function ChatPage() {
                   aria-current={item.id === conversationId ? 'true' : undefined}
                   onClick={() => setSearchParams({ conversa: String(item.id) })}
                   className={cx(
-                    'group w-full rounded-md px-3 py-2 text-left transition-colors',
+                    'group w-full rounded-lg px-3 py-2 text-left transition-colors',
                     item.id === conversationId ? 'bg-primary-soft' : 'hover:bg-surface-hover',
                     FOCUS_RING,
                   )}
@@ -166,7 +166,7 @@ export function ChatPage() {
       <section
         aria-label="Assistente de TI"
         // Altura fixa: só as mensagens rolam, a caixa de digitação fica sempre visível.
-        className="flex h-[calc(100dvh-9rem)] min-h-96 flex-col rounded-lg border border-border bg-surface lg:h-[calc(100dvh-11rem)]"
+        className="flex h-[calc(100dvh-9.5rem)] min-h-96 flex-col rounded-xl border border-border bg-surface shadow-card lg:h-[calc(100dvh-11.5rem)]"
       >
         <header className="flex flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
@@ -235,7 +235,7 @@ export function ChatPage() {
                     type="button"
                     onClick={() => void submit(example)}
                     className={cx(
-                      'min-h-11 rounded-md border border-border bg-surface px-3 py-2.5 text-left text-sm text-text transition-colors hover:border-border-strong hover:bg-surface-hover',
+                      'min-h-11 rounded-lg border border-border bg-surface px-3 py-2.5 text-left text-sm text-text transition-colors hover:border-border-strong hover:bg-surface-hover',
                       FOCUS_RING,
                     )}
                   >
@@ -277,7 +277,11 @@ export function ChatPage() {
           <div className="flex flex-col gap-2 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-text">Deseja abrir um chamado com nossa equipe?</p>
             <div className="flex gap-2">
-              <Button size="sm" isLoading={outcome.escalate.isPending} onClick={() => void escalate()}>
+              <Button
+                size="sm"
+                isLoading={outcome.escalate.isPending}
+                onClick={() => void escalate()}
+              >
                 Sim, abrir chamado
               </Button>
               <Button

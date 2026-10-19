@@ -4,28 +4,30 @@ import type { ReactNode } from 'react'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { cx } from '@/components/ui/styles'
 
-export type StatTone = 'neutral' | 'warning' | 'danger'
+export type StatTone = 'neutral' | 'success' | 'warning' | 'danger'
 
+/** Quadrado do ícone: azul no neutro; cor de estado só quando há sinal. */
 const ICON_TONES: Record<StatTone, string> = {
-  neutral: 'text-secondary',
-  warning: 'text-warning',
-  danger: 'text-danger',
+  neutral: 'bg-primary-soft text-primary',
+  success: 'bg-success-soft text-success',
+  warning: 'bg-warning-soft text-warning',
+  danger: 'bg-danger-soft text-danger',
 }
 
 export interface StatTileProps {
   label: string
   /** Valor já formatado (ex.: "12", "4h 20min", "92%"). `null` = sem dados. */
   value: string | null
-  /** Contexto curto sob o número (ex.: "nos últimos 30 dias"). */
+  /** Contexto curto sob o rótulo (ex.: "nos últimos 30 dias"). */
   caption?: string
   icon?: LucideIcon
-  /** Estado de alerta: ícone colorido + texto, nunca só cor. */
+  /** Estado de alerta: cor no ícone + texto do rótulo/legenda, nunca só cor. */
   tone?: StatTone
   isLoading?: boolean
   className?: string
 }
 
-/** Indicador numérico do dashboard: um número é métrica, não gráfico (skill dataviz). */
+/** Indicador numérico: um número é métrica, não gráfico (skill dataviz). */
 export function StatTile({
   label,
   value,
@@ -36,37 +38,52 @@ export function StatTile({
   className,
 }: StatTileProps) {
   return (
-    <div className={cx('bg-surface px-4 py-4 sm:px-5', className)}>
-      <div className="flex items-center gap-1.5">
-        {Icon && tone !== 'neutral' ? (
-          <Icon aria-hidden="true" className={cx('size-4', ICON_TONES[tone])} />
-        ) : null}
-        <p className="text-sm text-secondary">{label}</p>
-      </div>
-      {isLoading ? (
-        <Skeleton className="mt-2 h-8 w-16" />
-      ) : (
-        // Algarismos proporcionais: tabular só em colunas que precisam alinhar (skill dataviz).
-        <p className="mt-1.5 text-2xl font-semibold tracking-tight text-text">
-          {value ?? '—'}
-        </p>
+    <div
+      className={cx(
+        'flex flex-col gap-3 rounded-xl border border-border bg-surface p-4 shadow-card sm:p-5',
+        className,
       )}
-      {caption ? <p className="mt-0.5 text-xs text-secondary">{caption}</p> : null}
+    >
+      {Icon ? (
+        <span
+          aria-hidden="true"
+          className={cx('flex size-9 items-center justify-center rounded-lg', ICON_TONES[tone])}
+        >
+          <Icon className="size-4.5" />
+        </span>
+      ) : null}
+      <div className="min-w-0">
+        {isLoading ? (
+          <Skeleton className="h-8 w-16" />
+        ) : (
+          <p className="text-2xl font-bold tracking-tight text-text sm:text-3xl">{value ?? '—'}</p>
+        )}
+        <p className="mt-1 text-sm font-medium text-secondary">{label}</p>
+        {caption ? <p className="mt-0.5 text-xs text-secondary">{caption}</p> : null}
+      </div>
     </div>
   )
 }
 
 /**
- * Faixa de métricas: um único contêiner com divisórias finas entre as células
- * (o `gap-px` deixa a cor da borda aparecer), em vez de uma grade de cards.
+ * Faixa de indicadores: os blocos ficam num poço rebaixado, que os agrupa
+ * visualmente sem precisar de título em cada um.
  */
-export function StatGroup({ label, children }: { label: string; children: ReactNode }) {
+export function StatGroup({
+  label,
+  children,
+  className,
+}: {
+  label: string
+  children: ReactNode
+  className?: string
+}) {
   return (
-    <section
-      aria-label={label}
-      className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border lg:grid-cols-4"
-    >
-      {children}
+    // @container: as colunas seguem a largura disponível (com ou sem a coluna lateral).
+    <section aria-label={label} className={cx('@container', className)}>
+      <div className="grid grid-cols-1 gap-2 rounded-2xl border border-border bg-surface-sunken p-2 @md:grid-cols-2 @md:gap-3 @md:p-3 @2xl:grid-cols-4">
+        {children}
+      </div>
     </section>
   )
 }

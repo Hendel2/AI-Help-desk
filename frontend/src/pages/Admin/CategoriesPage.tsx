@@ -27,7 +27,6 @@ import { PRIORITY_LABELS } from '@/features/tickets/labels'
 import { TICKET_PRIORITIES } from '@/features/tickets/types'
 import { getErrorMessage } from '@/services/api/errors'
 
-
 const schema = z.object({
   name: z.string().trim().min(2, 'Informe o nome.').max(100, 'Máximo de 100 caracteres.'),
   description: z.string().trim().max(255, 'Máximo de 255 caracteres.'),
@@ -67,7 +66,10 @@ export function CategoriesPage() {
         title="Categorias"
         description="Tipos de chamado, com a prioridade e o SLA aplicados por padrão."
         action={
-          <Button icon={<Plus aria-hidden="true" className="size-4" />} onClick={() => setEditing('new')}>
+          <Button
+            icon={<Plus aria-hidden="true" className="size-4" />}
+            onClick={() => setEditing('new')}
+          >
             Nova categoria
           </Button>
         }
@@ -88,15 +90,23 @@ export function CategoriesPage() {
           description="Crie categorias como Rede, E-mail e VPN para classificar os chamados."
         />
       ) : (
-        <div className="relative overflow-x-auto rounded-lg border border-border bg-surface">
+        <div className="relative overflow-x-auto rounded-xl border border-border bg-surface">
           <table className="w-full text-left text-sm">
             <caption className="sr-only">Categorias</caption>
             <thead className="border-b border-border text-xs text-secondary">
               <tr>
-                <th scope="col" className="px-4 py-3 font-medium">Nome</th>
-                <th scope="col" className="px-4 py-3 font-medium">Prioridade padrão</th>
-                <th scope="col" className="px-4 py-3 font-medium">SLA</th>
-                <th scope="col" className="px-4 py-3 font-medium">Situação</th>
+                <th scope="col" className="px-4 py-3 font-medium">
+                  Nome
+                </th>
+                <th scope="col" className="px-4 py-3 font-medium">
+                  Prioridade padrão
+                </th>
+                <th scope="col" className="px-4 py-3 font-medium">
+                  SLA
+                </th>
+                <th scope="col" className="px-4 py-3 font-medium">
+                  Situação
+                </th>
                 <th scope="col" className="px-4 py-3 font-medium">
                   <span className="sr-only">Ações</span>
                 </th>

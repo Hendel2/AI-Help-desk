@@ -21,7 +21,7 @@ export function AppearanceSettings() {
               <label
                 key={value}
                 className={cx(
-                  'flex min-h-11 cursor-pointer items-center gap-3 rounded-md border px-3 py-2.5 text-sm text-text transition-colors',
+                  'flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 text-sm text-text transition-colors',
                   'has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-primary',
                   checked
                     ? 'border-primary bg-primary-soft font-medium'

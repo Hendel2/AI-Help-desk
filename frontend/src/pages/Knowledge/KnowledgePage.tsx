@@ -1,6 +1,7 @@
 import { Plus } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useState } from 'react'
+import { useSearchParams } from 'react-router'
 
 import { PageHeader } from '@/components/PageHeader'
 import { EmptyState } from '@/components/EmptyState'
@@ -20,7 +21,9 @@ import { getErrorMessage } from '@/services/api/errors'
 /** Base de conhecimento (§48): busca, categorias, populares e recentes. */
 export function KnowledgePage() {
   const { hasRole } = useAuth()
-  const [search, setSearch] = useState('')
+  // A busca global (Ctrl+K) abre a base já filtrada (?q=…).
+  const [searchParams] = useSearchParams()
+  const [search, setSearch] = useState(() => searchParams.get('q') ?? '')
   const [categoryId, setCategoryId] = useState<number | null>(null)
   const debouncedSearch = useDebouncedValue(search, 300)
   const categories = useCategories()
@@ -61,7 +64,7 @@ export function KnowledgePage() {
                 aria-pressed={selected}
                 onClick={() => setCategoryId(category.id)}
                 className={cx(
-                  'min-h-9 rounded-md border px-3 py-1 text-sm transition-colors',
+                  'min-h-9 rounded-lg border px-3 py-1 text-sm transition-colors',
                   selected
                     ? 'border-primary bg-primary-soft font-medium text-text'
                     : 'border-border bg-surface text-text hover:bg-surface-hover',

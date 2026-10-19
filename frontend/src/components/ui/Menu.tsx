@@ -33,7 +33,6 @@ export function Menu({ label, trigger, triggerClassName, align = 'end', children
   const triggerRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
-
   const close = useCallback(() => {
     setOpen(false)
     triggerRef.current?.focus()
@@ -112,7 +111,7 @@ export function Menu({ label, trigger, triggerClassName, align = 'end', children
             tabIndex={-1}
             onKeyDown={onMenuKeyDown}
             className={cx(
-              'absolute top-full z-40 mt-2 min-w-52 rounded-lg border border-border bg-surface-raised p-1 shadow-overlay',
+              'absolute top-full z-40 mt-2 min-w-52 rounded-xl border border-border bg-surface-raised p-1 shadow-overlay',
               'origin-top transition duration-150 ease-out motion-reduce:transition-none starting:-translate-y-1 starting:opacity-0',
               align === 'end' ? 'right-0' : 'left-0',
             )}
@@ -126,7 +125,7 @@ export function Menu({ label, trigger, triggerClassName, align = 'end', children
 }
 
 const ITEM_BASE =
-  'flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm text-text outline-none transition-colors hover:bg-surface-hover focus-visible:bg-surface-hover'
+  'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-text outline-none transition-colors hover:bg-surface-hover focus-visible:bg-surface-hover'
 
 function useMenu() {
   const context = useContext(MenuContext)

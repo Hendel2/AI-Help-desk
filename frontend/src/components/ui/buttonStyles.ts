@@ -4,8 +4,9 @@ export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger'
 export type ButtonSize = 'sm' | 'md'
 
 const VARIANTS: Record<ButtonVariant, string> = {
-  primary: 'bg-primary text-on-primary hover:bg-primary-hover',
-  secondary: 'border border-border bg-surface text-text hover:border-border-strong hover:bg-surface-hover',
+  primary: 'bg-primary text-on-primary shadow-card hover:bg-primary-hover',
+  secondary:
+    'border border-border bg-surface text-text shadow-card hover:border-border-strong hover:bg-surface-hover',
   ghost: 'text-text hover:bg-surface-hover',
   danger: 'bg-danger text-on-danger hover:brightness-95',
 }
@@ -27,7 +28,7 @@ export function buttonClasses({
   className?: string
 }): string {
   return cx(
-    'inline-flex items-center justify-center rounded-md font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+    'inline-flex items-center justify-center rounded-lg font-semibold whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-50',
     VARIANTS[variant],
     SIZES[size],
     FOCUS_RING,

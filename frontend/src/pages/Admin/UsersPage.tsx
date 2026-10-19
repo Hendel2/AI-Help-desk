@@ -76,7 +76,10 @@ export function UsersPage() {
         title="Usuários"
         description="Contas da empresa, perfis de acesso e departamentos."
         action={
-          <Button icon={<Plus aria-hidden="true" className="size-4" />} onClick={() => setEditing('new')}>
+          <Button
+            icon={<Plus aria-hidden="true" className="size-4" />}
+            onClick={() => setEditing('new')}
+          >
             Novo usuário
           </Button>
         }
@@ -127,15 +130,23 @@ export function UsersPage() {
         />
       ) : (
         <>
-          <div className="relative overflow-x-auto rounded-lg border border-border bg-surface">
+          <div className="relative overflow-x-auto rounded-xl border border-border bg-surface">
             <table className="w-full text-left text-sm">
               <caption className="sr-only">Usuários</caption>
               <thead className="border-b border-border text-xs text-secondary">
                 <tr>
-                  <th scope="col" className="px-4 py-3 font-medium">Nome</th>
-                  <th scope="col" className="px-4 py-3 font-medium">Perfil</th>
-                  <th scope="col" className="px-4 py-3 font-medium">Departamento</th>
-                  <th scope="col" className="px-4 py-3 font-medium">Situação</th>
+                  <th scope="col" className="px-4 py-3 font-medium">
+                    Nome
+                  </th>
+                  <th scope="col" className="px-4 py-3 font-medium">
+                    Perfil
+                  </th>
+                  <th scope="col" className="px-4 py-3 font-medium">
+                    Departamento
+                  </th>
+                  <th scope="col" className="px-4 py-3 font-medium">
+                    Situação
+                  </th>
                   <th scope="col" className="px-4 py-3 font-medium">
                     <span className="sr-only">Ações</span>
                   </th>

@@ -1,12 +1,17 @@
 import {
+  Activity,
+  Bell,
   Bot,
   BookOpen,
   Building2,
   ChartNoAxesColumn,
   FolderTree,
+  Inbox,
   LayoutDashboard,
+  ListTodo,
   ScrollText,
   Settings,
+  SquarePen,
   Ticket,
   Timer,
   UserRound,
@@ -15,6 +20,9 @@ import {
 import type { LucideIcon } from 'lucide-react'
 
 import type { RoleName } from '@/features/auth/types'
+
+/** Contadores exibidos ao lado do item (ver `useNavCounters`). */
+export type NavCounter = 'unread' | 'myTickets' | 'slaBreached'
 
 /**
  * Menu da especificação §37. `available: false` marca a etapa do roadmap que
@@ -28,6 +36,7 @@ export interface NavItem {
   available: boolean
   /** Perfis que veem o item; ausente = todos os perfis. */
   roles?: RoleName[]
+  counter?: NavCounter
 }
 
 export interface NavSection {
@@ -39,33 +48,65 @@ export interface NavSection {
 export const NAV_SECTIONS: NavSection[] = [
   {
     items: [
-      { label: 'Dashboard', to: '/', icon: LayoutDashboard, available: true },
+      { label: 'Início', to: '/', icon: LayoutDashboard, available: true },
       { label: 'Assistente IA', to: '/assistente', icon: Bot, available: true },
-      { label: 'Base de conhecimento', to: '/base-de-conhecimento', icon: BookOpen, available: true },
+      {
+        label: 'Notificações',
+        to: '/notificacoes',
+        icon: Bell,
+        available: true,
+        counter: 'unread',
+      },
     ],
   },
   {
-    title: 'Chamados',
+    title: 'Atendimento',
     items: [
       {
-        label: 'Todos',
+        label: 'Todos os chamados',
         to: '/chamados',
-        icon: Ticket,
+        icon: Inbox,
         available: true,
         roles: ['TECHNICIAN', 'ADMIN'],
+        counter: 'slaBreached',
       },
-      { label: 'Meus chamados', to: '/chamados/meus', icon: Ticket, available: true },
+      {
+        label: 'Meus chamados',
+        to: '/chamados/meus',
+        icon: Ticket,
+        available: true,
+        counter: 'myTickets',
+      },
       {
         label: 'Não atribuídos',
         to: '/chamados/nao-atribuidos',
-        icon: Ticket,
+        icon: ListTodo,
         available: true,
         roles: ['TECHNICIAN', 'ADMIN'],
       },
     ],
   },
   {
-    title: 'Relatórios',
+    title: 'Conhecimento',
+    items: [
+      {
+        label: 'Base de conhecimento',
+        to: '/base-de-conhecimento',
+        icon: BookOpen,
+        available: true,
+      },
+      {
+        label: 'Novo artigo',
+        to: '/base-de-conhecimento/novo',
+        icon: SquarePen,
+        available: true,
+        // Mesmo perfil da rota (só ADMIN publica artigos).
+        roles: ['ADMIN'],
+      },
+    ],
+  },
+  {
+    title: 'Análises',
     items: [
       {
         label: 'Indicadores',
@@ -112,7 +153,11 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    items: [{ label: 'Perfil', to: '/perfil', icon: UserRound, available: true }],
+    title: 'Acesso rápido',
+    items: [
+      { label: 'Status dos sistemas', to: '/status', icon: Activity, available: true },
+      { label: 'Meu perfil', to: '/perfil', icon: UserRound, available: true },
+    ],
   },
 ]
 
@@ -122,4 +167,22 @@ export function getNavSections(role: RoleName): NavSection[] {
     ...section,
     items: section.items.filter((item) => !item.roles || item.roles.includes(role)),
   })).filter((section) => section.items.length > 0)
+}
+
+/** Rotas sem item próprio no menu (detalhes, formulários). */
+const EXTRA_TITLES: Array<[RegExp, string]> = [
+  [/^\/chamados\/novo$/, 'Novo chamado'],
+  [/^\/chamados\/[^/]+$/, 'Detalhe do chamado'],
+  [/^\/base-de-conhecimento\/[^/]+\/editar$/, 'Editar artigo'],
+  [/^\/base-de-conhecimento\/[^/]+$/, 'Artigo'],
+]
+
+/** Título curto da página atual para a barra superior. */
+export function getPageTitle(pathname: string): string {
+  const path = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname
+  for (const section of NAV_SECTIONS) {
+    const item = section.items.find((candidate) => candidate.to === path)
+    if (item) return item.label
+  }
+  return EXTRA_TITLES.find(([pattern]) => pattern.test(path))?.[1] ?? 'AI Help Desk'
 }

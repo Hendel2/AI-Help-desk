@@ -53,7 +53,7 @@ export function TicketConversation({
   return (
     <div className="space-y-6">
       <ol
-        className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface"
+        className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface"
         aria-label="Mensagens do chamado"
       >
         <li className="px-4 py-4 sm:px-5">
@@ -100,7 +100,7 @@ export function TicketConversation({
       </ol>
 
       {isClosed ? (
-        <p className="rounded-md border border-border bg-surface-hover px-4 py-3 text-sm text-text">
+        <p className="rounded-lg border border-border bg-surface-hover px-4 py-3 text-sm text-text">
           Este chamado está encerrado e não aceita novas mensagens.
         </p>
       ) : (

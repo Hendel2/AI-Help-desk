@@ -25,7 +25,7 @@ export function SystemStatusPage() {
         <Link
           to="/login"
           aria-label="AI Help Desk, ir para o login"
-          className={cx('rounded-md', FOCUS_RING)}
+          className={cx('rounded-lg', FOCUS_RING)}
         >
           <BrandMark />
         </Link>
@@ -85,7 +85,7 @@ function HealthDetails({ health }: { health: HealthResponse }) {
           API operacional
         </p>
       ) : (
-        <div className="flex items-start gap-3 rounded-md border border-warning/30 bg-warning-soft p-3">
+        <div className="flex items-start gap-3 rounded-lg border border-warning/30 bg-warning-soft p-3">
           <TriangleAlert aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-warning" />
           <div>
             <p className="font-medium text-text">API com funcionamento degradado</p>

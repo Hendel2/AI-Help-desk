@@ -23,7 +23,19 @@ vi.mock('@/features/notifications/services/notifications.service', () => ({
   },
 }))
 
+vi.mock('@/features/dashboard/services/dashboard.service', () => ({
+  dashboardService: { metrics: vi.fn(), tickets: vi.fn(), sla: vi.fn(), ai: vi.fn() },
+}))
+
+vi.mock('@/features/chat/services/chat.service', () => ({
+  chatService: { assistant: vi.fn() },
+}))
+
 const { getMeWithRefresh } = await import('@/features/auth/services/auth.service')
+const { notificationsService } =
+  await import('@/features/notifications/services/notifications.service')
+const { dashboardService } = await import('@/features/dashboard/services/dashboard.service')
+const { chatService } = await import('@/features/chat/services/chat.service')
 
 const TOKENS: TokenResponse = {
   access_token: 'access',
@@ -54,7 +66,10 @@ function renderLayout(role: RoleName) {
     routes: [
       {
         element: <AppLayout />,
-        children: [{ path: 'perfil', element: <h1>Meu perfil</h1> }],
+        children: [
+          { path: 'perfil', element: <h1>Meu perfil</h1> },
+          { path: 'notificacoes', element: <h1>Caixa de notificações</h1> },
+        ],
       },
       { path: '/login', element: <h1>Entrar</h1> },
     ],
@@ -63,6 +78,25 @@ function renderLayout(role: RoleName) {
 
 beforeEach(() => {
   vi.mocked(getMeWithRefresh).mockReset()
+  window.localStorage.removeItem('ai-helpdesk.sidebar-collapsed')
+  vi.mocked(notificationsService.unreadCount).mockResolvedValue({ unread: 0 })
+  vi.mocked(dashboardService.metrics).mockResolvedValue({
+    scope: 'USER',
+    period_days: 30,
+    open: 0,
+    in_progress: 0,
+    waiting_user: 0,
+    resolved: 0,
+    created_in_period: 0,
+    sla_warning: 0,
+    sla_breached: 0,
+    assigned_to_me: null,
+    avg_resolution_minutes: null,
+    satisfaction_avg: null,
+    satisfaction_count: null,
+    sla_compliance_pct: null,
+  })
+  vi.mocked(chatService.assistant).mockResolvedValue({ ai_enabled: true, slow_responses: false })
 })
 
 afterEach(() => {
@@ -99,8 +133,8 @@ describe('AppLayout', () => {
     const nav = screen.getByRole('navigation', { name: 'Navegação principal' })
     expect(within(nav).queryByText('Administração')).not.toBeInTheDocument()
     expect(within(nav).queryByText('Indicadores')).not.toBeInTheDocument()
-    // "Todos" é restrito a técnicos e administradores; "Meus chamados" não.
-    expect(within(nav).queryByText('Todos')).not.toBeInTheDocument()
+    // "Todos os chamados" é restrito a técnicos e administradores; "Meus chamados" não.
+    expect(within(nav).queryByText('Todos os chamados')).not.toBeInTheDocument()
     expect(within(nav).getByText('Meus chamados')).toBeInTheDocument()
   })
 
@@ -109,7 +143,7 @@ describe('AppLayout', () => {
     await screen.findByRole('heading', { name: 'Meu perfil' })
 
     const nav = screen.getByRole('navigation', { name: 'Navegação principal' })
-    expect(within(nav).getByRole('link', { name: /Perfil/ })).toHaveAttribute(
+    expect(within(nav).getByRole('link', { name: 'Meu perfil' })).toHaveAttribute(
       'aria-current',
       'page',
     )
@@ -150,5 +184,96 @@ describe('AppLayout', () => {
 
     expect(await screen.findByRole('heading', { name: 'Entrar' })).toBeInTheDocument()
     expect(window.localStorage.getItem('ai-helpdesk.access_token')).toBeNull()
+  })
+
+  it('mostra contadores de não lidas e de chamados em aberto no menu', async () => {
+    vi.mocked(notificationsService.unreadCount).mockResolvedValue({ unread: 3 })
+    vi.mocked(dashboardService.metrics).mockResolvedValueOnce({
+      ...(await dashboardService.metrics(30)),
+      open: 2,
+    })
+    renderLayout('USER')
+
+    const nav = await screen.findByRole('navigation', { name: 'Navegação principal' })
+    expect(
+      await within(nav).findByRole('link', { name: 'Notificações, 3 não lidas' }),
+    ).toHaveAttribute('href', '/notificacoes')
+    expect(
+      await within(nav).findByRole('link', { name: 'Meus chamados, 2 em aberto' }),
+    ).toHaveAttribute('href', '/chamados/meus')
+  })
+
+  it('mostra no menu como o assistente está respondendo', async () => {
+    vi.mocked(chatService.assistant).mockResolvedValue({ ai_enabled: false, slow_responses: false })
+    renderLayout('USER')
+
+    const aside = await screen.findByRole('complementary', { name: 'Menu lateral' })
+    expect(await within(aside).findByText('Sem IA, modo básico')).toBeInTheDocument()
+    expect(within(aside).getByRole('link', { name: /Assistente de TI/ })).toHaveAttribute(
+      'href',
+      '/assistente',
+    )
+  })
+
+  it('recolhe o menu lateral e lembra a escolha', async () => {
+    const user = userEvent.setup()
+    renderLayout('USER')
+    await screen.findByRole('heading', { name: 'Meu perfil' })
+
+    const toggle = screen.getByRole('button', { name: 'Recolher menu lateral' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    await user.click(toggle)
+
+    expect(screen.getByRole('button', { name: 'Expandir menu lateral' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    )
+    expect(window.localStorage.getItem('ai-helpdesk.sidebar-collapsed')).toBe('1')
+    // Recolhido, o item continua com nome acessível (só o texto visual some).
+    const aside = screen.getByRole('complementary', { name: 'Menu lateral' })
+    expect(within(aside).getByRole('link', { name: 'Meu perfil' })).toBeInTheDocument()
+  })
+
+  it('abre a busca com Ctrl+K e navega pelo teclado', async () => {
+    const user = userEvent.setup()
+    renderLayout('USER')
+    await screen.findByRole('heading', { name: 'Meu perfil' })
+
+    await user.keyboard('{Control>}k{/Control}')
+    const dialog = screen.getByRole('dialog', { name: 'Buscar no AI Help Desk' })
+    const input = within(dialog).getByRole('combobox')
+    expect(input).toHaveFocus()
+
+    await user.type(input, 'notific')
+    expect(within(dialog).getByRole('option', { name: 'Notificações' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    await user.keyboard('{Enter}')
+
+    expect(
+      await screen.findByRole('heading', { name: 'Caixa de notificações' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('oferece buscar o texto digitado nos chamados e na base', async () => {
+    const user = userEvent.setup()
+    renderLayout('USER')
+    await screen.findByRole('heading', { name: 'Meu perfil' })
+
+    await user.click(screen.getByRole('button', { name: /Buscar páginas, chamados e artigos/ }))
+    const dialog = screen.getByRole('dialog', { name: 'Buscar no AI Help Desk' })
+    await user.type(within(dialog).getByRole('combobox'), 'impressora')
+
+    expect(
+      within(dialog).getByRole('option', { name: 'Buscar chamados por “impressora”' }),
+    ).toBeInTheDocument()
+    expect(
+      within(dialog).getByRole('option', { name: 'Buscar artigos por “impressora”' }),
+    ).toBeInTheDocument()
+
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 })

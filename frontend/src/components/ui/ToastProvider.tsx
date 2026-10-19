@@ -63,7 +63,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
   return (
     <div
       className={cx(
-        'pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-lg border bg-surface-raised px-4 py-3 shadow-overlay transition duration-200 ease-out motion-reduce:transition-none starting:translate-y-2 starting:opacity-0',
+        'pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-xl border bg-surface-raised px-4 py-3 shadow-overlay transition duration-200 ease-out motion-reduce:transition-none starting:translate-y-2 starting:opacity-0',
         border,
       )}
     >
@@ -74,7 +74,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
         onClick={() => onDismiss(toast.id)}
         aria-label="Fechar aviso"
         className={cx(
-          'rounded-md p-0.5 text-secondary transition-colors hover:bg-surface-hover hover:text-text',
+          'rounded-lg p-0.5 text-secondary transition-colors hover:bg-surface-hover hover:text-text',
           FOCUS_RING,
         )}
       >

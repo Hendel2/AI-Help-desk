@@ -89,7 +89,7 @@ export function AuditPage() {
             aria-label="Registros de auditoria"
             tabIndex={0}
             className={cx(
-              'relative overflow-x-auto rounded-lg border border-border bg-surface',
+              'relative overflow-x-auto rounded-xl border border-border bg-surface',
               FOCUS_RING,
             )}
           >
@@ -97,12 +97,24 @@ export function AuditPage() {
               <caption className="sr-only">Registros de auditoria</caption>
               <thead className="border-b border-border text-xs text-secondary">
                 <tr>
-                  <th scope="col" className="px-4 py-3 font-medium">Data</th>
-                  <th scope="col" className="px-4 py-3 font-medium">Responsável</th>
-                  <th scope="col" className="px-4 py-3 font-medium">Ação</th>
-                  <th scope="col" className="px-4 py-3 font-medium">Alvo</th>
-                  <th scope="col" className="px-4 py-3 font-medium">Detalhes</th>
-                  <th scope="col" className="px-4 py-3 font-medium">IP</th>
+                  <th scope="col" className="px-4 py-3 font-medium">
+                    Data
+                  </th>
+                  <th scope="col" className="px-4 py-3 font-medium">
+                    Responsável
+                  </th>
+                  <th scope="col" className="px-4 py-3 font-medium">
+                    Ação
+                  </th>
+                  <th scope="col" className="px-4 py-3 font-medium">
+                    Alvo
+                  </th>
+                  <th scope="col" className="px-4 py-3 font-medium">
+                    Detalhes
+                  </th>
+                  <th scope="col" className="px-4 py-3 font-medium">
+                    IP
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">

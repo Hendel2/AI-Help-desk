@@ -15,13 +15,14 @@ export function UserMenu({ user }: { user: CurrentUser }) {
   return (
     <Menu
       label={`Conta de ${user.name}`}
-      triggerClassName="flex items-center gap-2.5 rounded-md py-1 pr-1.5 pl-1 transition-colors hover:bg-surface-hover"
+      triggerClassName="flex items-center gap-2.5 rounded-lg py-1 pr-1.5 pl-1 transition-colors hover:bg-surface-hover"
       trigger={
         <>
           <Avatar name={user.name} src={user.avatar} size="sm" />
-          <span className="hidden text-left leading-tight sm:block">
-            <span className="block text-sm font-medium text-text">{user.name}</span>
-            <span className="block text-xs text-secondary">{ROLE_LABELS[user.role]}</span>
+          {/* Nome longo não empurra a barra: trunca (o completo está no menu e no rótulo). */}
+          <span className="hidden max-w-40 min-w-0 text-left leading-tight sm:block">
+            <span className="block truncate text-sm font-semibold text-text">{user.name}</span>
+            <span className="block truncate text-xs text-secondary">{ROLE_LABELS[user.role]}</span>
           </span>
           <ChevronDown aria-hidden="true" className="hidden size-4 text-secondary sm:block" />
         </>

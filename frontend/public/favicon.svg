@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <style>
-    .ticket { fill: #0a6b66; }
+    .ticket { fill: #1f5ad9; }
     .mark { stroke: #ffffff; }
     @media (prefers-color-scheme: dark) {
-      .ticket { fill: #4fc2b5; }
-      .mark { stroke: #04211e; }
+      .ticket { fill: #6fa1ff; }
+      .mark { stroke: #06132b; }
     }
   </style>
   <mask id="notches">

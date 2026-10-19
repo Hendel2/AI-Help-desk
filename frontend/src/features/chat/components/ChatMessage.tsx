@@ -20,7 +20,7 @@ interface ChatMessageProps {
 export function ChatMessage({ message, userName }: ChatMessageProps) {
   if (message.role === 'SYSTEM') {
     return (
-      <p className="mx-auto max-w-md rounded-md bg-surface-hover px-3 py-2 text-center text-sm text-text">
+      <p className="mx-auto max-w-md rounded-lg bg-surface-hover px-3 py-2 text-center text-sm text-text">
         {message.content}
       </p>
     )
@@ -38,7 +38,7 @@ export function ChatMessage({ message, userName }: ChatMessageProps) {
         <p className="text-xs font-medium text-secondary">{isUser ? 'Você' : 'Assistente de TI'}</p>
         <div
           className={cx(
-            'rounded-lg px-4 py-3 text-left text-sm break-words whitespace-pre-line',
+            'rounded-xl px-4 py-3 text-left text-sm break-words whitespace-pre-line',
             isUser ? 'bg-primary-soft text-text' : 'border border-border bg-surface text-text',
           )}
         >
@@ -92,7 +92,7 @@ function FeedbackButtons({ messageId }: { messageId: number }) {
   }
 
   const buttonClass = cx(
-    'rounded-md p-1.5 text-secondary transition-colors hover:bg-surface-hover hover:text-text disabled:opacity-50',
+    'rounded-lg p-1.5 text-secondary transition-colors hover:bg-surface-hover hover:text-text disabled:opacity-50',
     FOCUS_RING,
   )
   return (

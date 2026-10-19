@@ -1,39 +1,20 @@
-import {
-  AlertTriangle,
-  Bell,
-  CheckCircle2,
-  MessageSquare,
-  Ticket,
-  UserCheck,
-  XCircle,
-} from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
+import { Bell } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { Link } from 'react-router'
 
 import { EmptyState } from '@/components/EmptyState'
 import { ErrorState } from '@/components/ErrorState'
 import { Button } from '@/components/ui/Button'
 import { SkeletonText } from '@/components/ui/Skeleton'
-import { cx, FOCUS_RING, SECONDARY_ON_TINT } from '@/components/ui/styles'
-import { formatRelative } from '@/utils/format'
+import { cx, FOCUS_RING } from '@/components/ui/styles'
 
 import {
   useMarkAllNotificationsRead,
-  useMarkNotificationRead,
   useNotificationList,
+  useOpenNotification,
   useUnreadCount,
 } from '../hooks/useNotifications'
-import type { AppNotification, NotificationType } from '../types'
-
-const ICONS: Record<NotificationType, { icon: LucideIcon; className: string }> = {
-  TICKET_CREATED: { icon: Ticket, className: 'text-primary' },
-  TICKET_ASSIGNED: { icon: UserCheck, className: 'text-primary' },
-  COMMENT_ADDED: { icon: MessageSquare, className: 'text-primary' },
-  TICKET_RESOLVED: { icon: CheckCircle2, className: 'text-success' },
-  SLA_WARNING: { icon: AlertTriangle, className: 'text-warning' },
-  SLA_BREACHED: { icon: XCircle, className: 'text-danger' },
-}
+import { NotificationList } from './NotificationList'
 
 /** Sino de notificações da barra superior (§22, §38). */
 export function NotificationBell() {
@@ -74,7 +55,7 @@ export function NotificationBell() {
         aria-label={count > 0 ? `Notificações, ${count} não lidas` : 'Notificações'}
         onClick={() => setIsOpen((open) => !open)}
         className={cx(
-          'relative rounded-md p-2 text-secondary transition-colors hover:bg-surface-hover hover:text-text',
+          'relative rounded-lg p-2 text-secondary transition-colors hover:bg-surface-hover hover:text-text',
           FOCUS_RING,
         )}
       >
@@ -104,24 +85,17 @@ interface NotificationPanelProps {
 
 function NotificationPanel({ id, hasUnread, onNavigate }: NotificationPanelProps) {
   const list = useNotificationList(true)
-  const markRead = useMarkNotificationRead()
   const markAll = useMarkAllNotificationsRead()
-  const navigate = useNavigate()
-
-  const open = (notification: AppNotification) => {
-    if (!notification.is_read) markRead.mutate(notification.id)
-    onNavigate()
-    if (notification.ticket_id !== null) void navigate(`/chamados/${notification.ticket_id}`)
-  }
+  const open = useOpenNotification(onNavigate)
 
   return (
     <section
       id={id}
       aria-label="Notificações"
-      className="fixed inset-x-2 top-14 z-40 rounded-lg border border-border bg-surface-raised shadow-overlay transition duration-150 ease-out motion-reduce:transition-none starting:-translate-y-1 starting:opacity-0 sm:absolute sm:inset-x-auto sm:top-full sm:right-0 sm:mt-2 sm:w-96"
+      className="fixed inset-x-2 top-16 z-40 rounded-xl border border-border bg-surface-raised shadow-overlay transition duration-150 ease-out motion-reduce:transition-none starting:-translate-y-1 starting:opacity-0 sm:absolute sm:inset-x-auto sm:top-full sm:right-0 sm:mt-2 sm:w-96"
     >
       <header className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
-        <h2 className="text-sm font-semibold text-text">Notificações</h2>
+        <h2 className="text-sm font-bold text-text">Notificações</h2>
         {hasUnread ? (
           <Button
             variant="ghost"
@@ -145,45 +119,21 @@ function NotificationPanel({ id, hasUnread, onNavigate }: NotificationPanelProps
         ) : list.data.items.length === 0 ? (
           <EmptyState title="Nenhuma notificação." icon={Bell} className="py-8" />
         ) : (
-          <ul className="divide-y divide-border">
-            {list.data.items.map((notification) => {
-              const { icon: Icon, className } = ICONS[notification.type]
-              return (
-                <li key={notification.id}>
-                  <button
-                    type="button"
-                    onClick={() => open(notification)}
-                    className={cx(
-                      'group flex w-full gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-hover focus-visible:bg-surface-hover focus-visible:outline-none',
-                      !notification.is_read && 'bg-primary-soft/60',
-                    )}
-                  >
-                    <Icon aria-hidden="true" className={cx('mt-0.5 size-4 shrink-0', className)} />
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-medium text-text">
-                        {notification.title}
-                        {!notification.is_read ? <span className="sr-only"> (não lida)</span> : null}
-                      </span>
-                      <span className={cx('block truncate text-sm', SECONDARY_ON_TINT)}>
-                        {notification.message}
-                      </span>
-                      <time
-                        dateTime={notification.created_at}
-                        className={cx('text-xs', SECONDARY_ON_TINT)}
-                      >
-                        {formatRelative(notification.created_at)}
-                      </time>
-                    </span>
-                    {!notification.is_read ? (
-                      <span aria-hidden="true" className="mt-1.5 size-2 shrink-0 rounded-full bg-primary" />
-                    ) : null}
-                  </button>
-                </li>
-              )
-            })}
-          </ul>
+          <NotificationList items={list.data.items} onOpen={open} />
         )}
       </div>
+      <footer className="border-t border-border p-2">
+        <Link
+          to="/notificacoes"
+          onClick={onNavigate}
+          className={cx(
+            'flex min-h-10 items-center justify-center rounded-lg text-sm font-semibold text-primary transition-colors hover:bg-surface-hover',
+            FOCUS_RING,
+          )}
+        >
+          Ver todas as notificações
+        </Link>
+      </footer>
     </section>
   )
 }

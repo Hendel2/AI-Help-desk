@@ -10,7 +10,7 @@ export function Skeleton({ className }: SkeletonProps) {
   return (
     <span
       aria-hidden="true"
-      className={cx('block rounded-md bg-surface-hover motion-safe:animate-pulse', className)}
+      className={cx('block rounded-lg bg-surface-hover motion-safe:animate-pulse', className)}
     />
   )
 }

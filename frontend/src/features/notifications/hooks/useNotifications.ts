@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router'
 
 import { notificationsService } from '../services/notifications.service'
+import type { AppNotification } from '../types'
 
 export const notificationKeys = {
   all: ['notifications'] as const,
@@ -43,4 +45,15 @@ export function useMarkAllNotificationsRead() {
     mutationFn: () => notificationsService.markAllRead(),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: notificationKeys.all }),
   })
+}
+
+/** Abre a notificação: marca como lida e vai para o chamado, quando houver. */
+export function useOpenNotification(onAfterOpen?: () => void) {
+  const markRead = useMarkNotificationRead()
+  const navigate = useNavigate()
+  return (notification: AppNotification) => {
+    if (!notification.is_read) markRead.mutate(notification.id)
+    onAfterOpen?.()
+    if (notification.ticket_id !== null) void navigate(`/chamados/${notification.ticket_id}`)
+  }
 }

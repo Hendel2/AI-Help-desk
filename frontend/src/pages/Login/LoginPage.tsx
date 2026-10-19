@@ -78,7 +78,7 @@ export function LoginPage() {
             {errors.root?.message ? (
               <p
                 role="alert"
-                className="rounded-md border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger"
+                className="rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger"
               >
                 {errors.root.message}
               </p>

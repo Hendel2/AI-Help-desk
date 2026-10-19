@@ -15,7 +15,7 @@ export function ThemeMenu() {
     <Menu
       label="Tema"
       trigger={<Icon aria-hidden="true" className="size-5" />}
-      triggerClassName="rounded-md p-2 text-secondary transition-colors hover:bg-surface-hover hover:text-text"
+      triggerClassName="rounded-lg p-2 text-secondary transition-colors hover:bg-surface-hover hover:text-text"
     >
       <MenuGroup label="Aparência">
         {THEME_OPTIONS.map(({ value, label, icon: OptionIcon }) => (

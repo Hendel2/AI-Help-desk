@@ -9,12 +9,14 @@ import { getErrorMessage } from '@/services/api/errors'
 import type { useDashboardAI } from '../hooks/useDashboard'
 import type { AIInsight } from '../types'
 
-const TONES: Record<AIInsight['tone'], { icon: typeof Lightbulb; className: string; label: string }> =
-  {
-    info: { icon: Lightbulb, className: 'text-primary', label: 'Observação' },
-    success: { icon: CircleCheck, className: 'text-success', label: 'Ponto positivo' },
-    warning: { icon: TriangleAlert, className: 'text-warning', label: 'Atenção' },
-  }
+const TONES: Record<
+  AIInsight['tone'],
+  { icon: typeof Lightbulb; className: string; label: string }
+> = {
+  info: { icon: Lightbulb, className: 'text-primary', label: 'Observação' },
+  success: { icon: CircleCheck, className: 'text-success', label: 'Ponto positivo' },
+  warning: { icon: TriangleAlert, className: 'text-warning', label: 'Atenção' },
+}
 
 interface AIInsightsCardProps {
   query: ReturnType<typeof useDashboardAI>
@@ -32,7 +34,7 @@ export function AIInsightsCard({ query, className }: AIInsightsCardProps) {
     <section
       aria-labelledby={titleId}
       className={cx(
-        'grid gap-4 rounded-lg border border-border bg-surface p-4 sm:p-5 lg:grid-cols-[14rem_1fr] lg:gap-8',
+        'grid gap-4 rounded-xl border border-border bg-surface p-4 sm:p-5 lg:grid-cols-[14rem_1fr] lg:gap-8',
         className,
       )}
     >

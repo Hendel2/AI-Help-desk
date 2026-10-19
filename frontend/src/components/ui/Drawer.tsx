@@ -49,7 +49,7 @@ export function Drawer({ isOpen, onClose, title, children }: DrawerProps) {
             onClick={onClose}
             aria-label="Fechar navegação"
             className={cx(
-              'rounded-md p-1 text-secondary transition-colors hover:bg-surface-hover hover:text-text',
+              'rounded-lg p-1 text-secondary transition-colors hover:bg-surface-hover hover:text-text',
               FOCUS_RING,
             )}
           >

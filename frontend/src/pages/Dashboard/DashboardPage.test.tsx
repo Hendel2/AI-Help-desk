@@ -137,13 +137,23 @@ describe('DashboardPage', () => {
     renderDashboard('USER')
 
     expect(await screen.findByRole('heading', { name: 'Olá, Maria' })).toBeInTheDocument()
-    const tiles = screen.getByRole('region', { name: 'Indicadores' })
-    expect(await within(tiles).findByText('Aguardando você')).toBeInTheDocument()
-    expect(await within(tiles).findByText('7')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Novo chamado/ })).toHaveAttribute(
+    // Banner: resumo com números reais e as ações do perfil.
+    expect(await screen.findByText(/1 chamado aguarda a sua resposta/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Abrir chamado' })).toHaveAttribute(
       'href',
       '/chamados/novo',
     )
+    // Situação: o card leva à lista já filtrada.
+    expect(screen.getByRole('link', { name: /Aguardando sua resposta/ })).toHaveAttribute(
+      'href',
+      '/chamados/meus?status=WAITING_USER',
+    )
+    expect(screen.getByText('1 chamado precisa de você')).toBeInTheDocument()
+    // Indicadores: 7 de 10 chamados resolvidos no anel.
+    const tiles = screen.getByRole('region', { name: 'Indicadores' })
+    expect(within(tiles).getByText('70%')).toBeInTheDocument()
+    expect(within(tiles).getByText('dos seus 10 chamados já foram resolvidos')).toBeInTheDocument()
+    expect(within(tiles).getByText('Aguardando você')).toBeInTheDocument()
     expect(await screen.findByRole('link', { name: 'VPN não conecta' })).toBeInTheDocument()
     // Gestão e fila da equipe não aparecem para o usuário.
     expect(screen.queryByText('Desempenho dos técnicos')).not.toBeInTheDocument()
@@ -161,7 +171,7 @@ describe('DashboardPage', () => {
     expect(within(tiles).getByText('SLA vencido')).toBeInTheDocument()
 
     const byPriority = await screen.findByRole('region', {
-      name: 'Chamados em aberto por prioridade',
+      name: 'Em aberto por prioridade',
     })
     expect(await within(byPriority).findByText('Alta')).toBeInTheDocument()
     const activity = screen.getByRole('region', { name: 'Atividade recente' })

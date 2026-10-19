@@ -31,6 +31,11 @@ export const KnowledgeEditorPage = lazy(() =>
     default: module.KnowledgeEditorPage,
   })),
 )
+export const NotificationsPage = lazy(() =>
+  import('@/pages/Notifications/NotificationsPage').then((module) => ({
+    default: module.NotificationsPage,
+  })),
+)
 export const ChatPage = lazy(() =>
   import('@/pages/Chat/ChatPage').then((module) => ({ default: module.ChatPage })),
 )

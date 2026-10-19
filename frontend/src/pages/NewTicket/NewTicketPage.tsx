@@ -120,15 +120,18 @@ export function NewTicketPage() {
     if (!(await trigger(step.fields))) return
     if (stepIndex === 0) {
       // A IA sugere categoria e prioridade a partir do relato (§47); o usuário pode mudar.
-      classify.mutate(`${values.title ?? ''}
+      classify.mutate(
+        `${values.title ?? ''}
 
-${values.description ?? ''}`, {
-        onSuccess: (result) => {
-          if (result.category_id !== null && !values.categoryId) {
-            setValue('categoryId', String(result.category_id))
-          }
+${values.description ?? ''}`,
+        {
+          onSuccess: (result) => {
+            if (result.category_id !== null && !values.categoryId) {
+              setValue('categoryId', String(result.category_id))
+            }
+          },
         },
-      })
+      )
     }
     setStepIndex((index) => index + 1)
   }
@@ -184,10 +187,7 @@ ${values.description ?? ''}`, {
               className="flex flex-1 flex-col gap-2"
             >
               <span
-                className={cx(
-                  'h-1 rounded-full',
-                  done || current ? 'bg-primary' : 'bg-border',
-                )}
+                className={cx('h-1 rounded-full', done || current ? 'bg-primary' : 'bg-border')}
               />
               <span
                 className={cx(
@@ -207,7 +207,7 @@ ${values.description ?? ''}`, {
 
       <form
         noValidate
-        className="space-y-6 rounded-lg border border-border bg-surface p-4 sm:p-6"
+        className="space-y-6 rounded-xl border border-border bg-surface p-4 sm:p-6"
         onSubmit={(event) => {
           event.preventDefault()
           if (isLastStep) void handleSubmit(onSubmit)(event)
@@ -300,7 +300,7 @@ ${values.description ?? ''}`, {
               </ul>
             ) : null}
             {files.length > 0 ? (
-              <ul className="divide-y divide-border rounded-md border border-border">
+              <ul className="divide-y divide-border rounded-lg border border-border">
                 {files.map((file, index) => (
                   <li key={`${file.name}-${index}`} className="flex items-center gap-2 px-3 py-2">
                     <FileText aria-hidden="true" className="size-4 shrink-0 text-secondary" />
@@ -324,7 +324,7 @@ ${values.description ?? ''}`, {
         ) : null}
 
         {stepIndex === 3 ? (
-          <dl className="divide-y divide-border rounded-md border border-border text-sm">
+          <dl className="divide-y divide-border rounded-lg border border-border text-sm">
             <ReviewRow label="Título" value={values.title ?? ''} />
             <ReviewRow label="Descrição" value={values.description ?? ''} multiline />
             <ReviewRow label="Categoria" value={selectedCategory?.name ?? 'Sem categoria'} />
@@ -383,7 +383,7 @@ function AISuggestionNote({ isLoading, categoryName, priority, source }: AISugge
   return (
     <p
       role="status"
-      className="flex items-start gap-2 rounded-md border border-primary/20 bg-primary-soft px-3 py-2 text-sm text-text"
+      className="flex items-start gap-2 rounded-lg border border-primary/20 bg-primary-soft px-3 py-2 text-sm text-text"
     >
       <Sparkles aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
       {isLoading ? (
@@ -396,8 +396,9 @@ function AISuggestionNote({ isLoading, categoryName, priority, source }: AISugge
               categoria <strong className="font-medium">{categoryName}</strong>,{' '}
             </>
           ) : null}
-          prioridade <strong className="font-medium">{priority ? PRIORITY_LABELS[priority] : ''}</strong>.
-          Você pode alterar.
+          prioridade{' '}
+          <strong className="font-medium">{priority ? PRIORITY_LABELS[priority] : ''}</strong>. Você
+          pode alterar.
         </span>
       )}
     </p>

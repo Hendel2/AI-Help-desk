@@ -33,7 +33,7 @@ export function Badge({ tone = 'neutral', withDot = true, className, children }:
   return (
     <span
       className={cx(
-        'inline-flex items-center gap-1.5 rounded-md border px-1.5 py-0.5 text-xs font-medium whitespace-nowrap text-text',
+        'inline-flex items-center gap-1.5 rounded-lg border px-1.5 py-0.5 text-xs font-medium whitespace-nowrap text-text',
         border,
         background,
         className,

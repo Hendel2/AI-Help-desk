@@ -77,7 +77,10 @@ export function SLAPage() {
         title="SLA"
         description="Prazos de atendimento. Políticas com prioridade valem para chamados dessa prioridade sem SLA na categoria."
         action={
-          <Button icon={<Plus aria-hidden="true" className="size-4" />} onClick={() => setEditing('new')}>
+          <Button
+            icon={<Plus aria-hidden="true" className="size-4" />}
+            onClick={() => setEditing('new')}
+          >
             Nova política
           </Button>
         }
@@ -98,16 +101,26 @@ export function SLAPage() {
           description="Sem SLA, os chamados não têm prazo de atendimento."
         />
       ) : (
-        <div className="relative overflow-x-auto rounded-lg border border-border bg-surface">
+        <div className="relative overflow-x-auto rounded-xl border border-border bg-surface">
           <table className="w-full text-left text-sm">
             <caption className="sr-only">Políticas de SLA</caption>
             <thead className="border-b border-border text-xs text-secondary">
               <tr>
-                <th scope="col" className="px-4 py-3 font-medium">Nome</th>
-                <th scope="col" className="px-4 py-3 font-medium">Aplica-se a</th>
-                <th scope="col" className="px-4 py-3 font-medium">1ª resposta</th>
-                <th scope="col" className="px-4 py-3 font-medium">Resolução</th>
-                <th scope="col" className="px-4 py-3 font-medium">Situação</th>
+                <th scope="col" className="px-4 py-3 font-medium">
+                  Nome
+                </th>
+                <th scope="col" className="px-4 py-3 font-medium">
+                  Aplica-se a
+                </th>
+                <th scope="col" className="px-4 py-3 font-medium">
+                  1ª resposta
+                </th>
+                <th scope="col" className="px-4 py-3 font-medium">
+                  Resolução
+                </th>
+                <th scope="col" className="px-4 py-3 font-medium">
+                  Situação
+                </th>
                 <th scope="col" className="px-4 py-3 font-medium">
                   <span className="sr-only">Ações</span>
                 </th>
