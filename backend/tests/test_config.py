@@ -12,6 +12,7 @@ from app.core.config import (
     Settings,
 )
 from app.main import create_app
+from app.services.ai.provider import get_provider
 
 STRONG_SECRET = "x" * 48
 MYSQL_URL = "mysql+pymysql://helpdesk:db-password@mysql:3306/helpdesk"
@@ -59,8 +60,10 @@ def test_defaults_are_safe_for_local_development() -> None:
     assert settings.ENVIRONMENT == "development"
     assert settings.DATABASE_URL.startswith("sqlite")
     assert settings.CORS_ORIGINS == ["http://localhost:5173"]
-    assert settings.AI_PROVIDER == "none"
+    assert settings.AI_PROVIDER == "gemini"
     assert settings.AI_API_KEY is None
+    # Gemini é o padrão, mas sem chave nenhuma chamada externa é feita.
+    assert get_provider(settings) is None
     assert settings.is_production is False
 
 

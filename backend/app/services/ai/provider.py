@@ -4,8 +4,9 @@ O resto da aplicação conversa apenas com `LLMProvider`. Trocar de provedor
 significa escrever outra implementação desta interface — nenhuma regra de
 negócio conhece o SDK.
 
-`AI_PROVIDER=none` (padrão) não cria provedor: cada tarefa de IA usa sua
-heurística local, e o sistema continua funcional sem chave de API.
+O padrão é `AI_PROVIDER=gemini` (só vale com `AI_API_KEY`). `none` não cria
+provedor: cada tarefa de IA usa sua heurística local, e o sistema continua
+funcional sem chave de API.
 
 `AI_FALLBACK_PROVIDER` (ex.: `ollama`, a IA local do compose) é o reserva: se o
 principal falhar — fora do ar, cota esgotada, erro —, a mesma chamada vai para

@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     CORS_ORIGINS: Annotated[list[str], NoDecode] = ["http://localhost:5173"]
     LOG_LEVEL: LogLevel = "INFO"
 
-    AI_PROVIDER: str = "none"
+    AI_PROVIDER: str = "gemini"
     AI_API_KEY: SecretStr | None = None
     AI_MODEL: str | None = None
     # Reserva quando o provedor principal falha ou a cota acaba ("ollama" ou "none").
