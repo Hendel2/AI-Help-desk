@@ -8,6 +8,7 @@ from app.api.deps import AILimit, CurrentUser, SessionDep
 from app.api.v1.ai.router import get_ai_provider
 from app.api.v1.knowledge.router import get_rag
 from app.schemas.chat import (
+    AssistantInfo,
     ChatTurnRead,
     ConversationRead,
     ConversationSummary,
@@ -35,6 +36,15 @@ def get_chat_service(
 
 
 ServiceDep = Annotated[ChatService, Depends(get_chat_service)]
+
+
+@router.get(
+    "/assistant",
+    response_model=AssistantInfo,
+    summary="Se o assistente está respondendo com IA ou só com a base de conhecimento",
+)
+def assistant_info(user: CurrentUser, service: ServiceDep) -> AssistantInfo:
+    return AssistantInfo(ai_enabled=service.ai_enabled, slow_responses=service.slow_responses)
 
 
 @router.post(

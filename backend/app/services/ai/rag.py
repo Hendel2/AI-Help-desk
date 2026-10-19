@@ -111,6 +111,15 @@ class RAGService:
         ).all()
         return sum(self.index_article(article) for article in articles)
 
+    def rebuild_company(self, company_id: int) -> int:
+        """Recria a coleção da empresa do zero (ex.: depois de trocar o embedder).
+
+        Levanta `VectorStoreError` se o banco vetorial estiver fora do ar. Quem chama
+        faz o commit.
+        """
+        self.store.reset(company_id)
+        return self.reindex_company(company_id)
+
     # --- Busca ----------------------------------------------------------------
 
     def search(self, company_id: int, query: str, *, k: int = 4) -> list[RetrievedSource]:

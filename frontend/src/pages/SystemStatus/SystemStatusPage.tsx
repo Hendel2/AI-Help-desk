@@ -1,8 +1,12 @@
 import { CircleCheck, TriangleAlert } from 'lucide-react'
+import { Link } from 'react-router'
 
+import { BrandMark } from '@/components/BrandMark'
 import { ErrorState } from '@/components/ErrorState'
+import { ButtonLink } from '@/components/ui/ButtonLink'
 import { Card } from '@/components/ui/Card'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { cx, FOCUS_RING } from '@/components/ui/styles'
 import { useHealth } from '@/hooks/useHealth'
 import { getErrorMessage } from '@/services/api/errors'
 import type { HealthResponse } from '@/types/health'
@@ -16,12 +20,22 @@ export function SystemStatusPage() {
   const isRetrying = isError && isFetching
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-4 py-16 sm:px-6 sm:py-24">
-      <h1 className="text-2xl font-semibold tracking-tight text-text">AI Help Desk</h1>
-      <p className="mt-2 text-secondary">
-        Plataforma de Help Desk de TI multiempresa, com inteligência artificial para apoiar o
-        atendimento.
-      </p>
+    <main className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6">
+      <div className="flex items-center justify-between">
+        <Link
+          to="/login"
+          aria-label="AI Help Desk, ir para o login"
+          className={cx('rounded-md', FOCUS_RING)}
+        >
+          <BrandMark />
+        </Link>
+        <ButtonLink to="/login" variant="secondary" size="sm">
+          Entrar
+        </ButtonLink>
+      </div>
+
+      <h1 className="mt-16 text-2xl font-semibold tracking-tight text-text">Status do sistema</h1>
+      <p className="mt-2 text-secondary">Situação atual dos serviços do AI Help Desk.</p>
 
       <Card title="Status da API" className="mt-10">
         <div role="status" aria-live="polite" aria-busy={isPending || isRetrying}>
@@ -89,7 +103,7 @@ function HealthDetails({ health }: { health: HealthResponse }) {
         </div>
         <div>
           <dt className="text-sm text-secondary">Versão</dt>
-          <dd className="mt-1 font-mono text-sm text-text">{health.version}</dd>
+          <dd className="mt-1 text-sm font-medium text-text tabular-nums">{health.version}</dd>
         </div>
       </dl>
     </div>

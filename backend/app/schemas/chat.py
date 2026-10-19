@@ -43,6 +43,15 @@ class ChatTurnRead(BaseModel):
     assistant_message: MessageRead
 
 
+class AssistantInfo(BaseModel):
+    """Como o assistente responde agora."""
+
+    #: Sem IA, o assistente só sugere procedimentos da base de conhecimento e abre chamados.
+    ai_enabled: bool
+    #: A IA principal roda localmente, no processador: cada resposta leva dezenas de segundos.
+    slow_responses: bool
+
+
 class EscalationRead(BaseModel):
     ticket_id: int
     ticket_number: str

@@ -16,6 +16,7 @@ vi.mock('@/features/auth/services/auth.service', () => ({
 }))
 vi.mock('@/features/chat/services/chat.service', () => ({
   chatService: {
+    assistant: vi.fn(),
     list: vi.fn(),
     get: vi.fn(),
     create: vi.fn(),
@@ -70,6 +71,7 @@ function renderChat(route = '/assistente') {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.mocked(chatService.assistant).mockResolvedValue({ ai_enabled: true, slow_responses: false })
   vi.mocked(chatService.list).mockResolvedValue([])
   vi.mocked(chatService.create).mockResolvedValue(conversation())
   vi.mocked(chatService.get).mockResolvedValue(conversation())
@@ -103,6 +105,34 @@ describe('ChatPage', () => {
       'href',
       '/base-de-conhecimento/3',
     )
+  })
+
+  it('avisa quando o assistente está sem IA', async () => {
+    vi.mocked(chatService.assistant).mockResolvedValue({ ai_enabled: false, slow_responses: false })
+    renderChat()
+
+    expect(await screen.findByText('Sem IA')).toBeInTheDocument()
+    expect(screen.getByText(/Modo básico: eu sugiro procedimentos/)).toBeInTheDocument()
+  })
+
+  it('não mostra o aviso de modo básico com IA', async () => {
+    renderChat()
+
+    expect(await screen.findByText(/Conte o problema com suas palavras/)).toBeInTheDocument()
+    expect(screen.queryByText('Sem IA')).not.toBeInTheDocument()
+  })
+
+  it('avisa que a IA local pode demorar enquanto responde', async () => {
+    const user = userEvent.setup()
+    vi.mocked(chatService.assistant).mockResolvedValue({ ai_enabled: true, slow_responses: true })
+    vi.mocked(chatService.send).mockReturnValue(new Promise(() => {}))
+    renderChat()
+
+    await user.click(await screen.findByRole('button', { name: 'Minha VPN não conecta' }))
+
+    expect(
+      await screen.findByText(/O assistente está escrevendo… A IA local pode levar até 1 minuto./),
+    ).toBeInTheDocument()
   })
 
   it('envia com Enter e mantém Shift+Enter para nova linha', async () => {
@@ -176,5 +206,26 @@ describe('ChatPage', () => {
     expect(await screen.findByText('Chamado HD-000042 aberto.')).toBeInTheDocument()
     expect(screen.queryByLabelText('Mensagem para o Assistente de TI')).not.toBeInTheDocument()
     expect(screen.getByText(/Esta conversa foi encerrada/)).toBeInTheDocument()
+  })
+
+  it('permite encerrar como resolvido ou falar com a equipe a qualquer momento', async () => {
+    const user = userEvent.setup()
+    const active = conversation({
+      messages: [
+        message({ id: 1, content: 'Mouse com mal contato' }),
+        message({ id: 2, role: 'ASSISTANT', content: 'O mouse é com fio ou sem fio?' }),
+      ],
+    })
+    vi.mocked(chatService.get).mockResolvedValue(active)
+    vi.mocked(chatService.resolve).mockResolvedValue({ ...active, status: 'RESOLVED' })
+    vi.mocked(chatService.escalate).mockResolvedValue({ ticket_id: 42, ticket_number: 'HD-000042' })
+    renderChat('/assistente?conversa=5')
+
+    await user.click(await screen.findByRole('button', { name: 'Resolvido' }))
+    expect(chatService.resolve).toHaveBeenCalledWith(5)
+    expect(await screen.findByText('Que bom que resolveu! A conversa foi encerrada.')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Falar com a equipe' }))
+    expect(chatService.escalate).toHaveBeenCalledWith(5)
   })
 })

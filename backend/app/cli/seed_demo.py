@@ -50,7 +50,7 @@ from app.repositories.ticket import format_ticket_number
 from app.services import sla
 from app.services.ai.embeddings import HashingEmbedder
 from app.services.ai.rag import RAGService
-from app.services.ai.vector_store import VectorStore, build_vector_store
+from app.services.ai.vector_store import VectorStore, VectorStoreError, build_vector_store
 
 DEMO_COMPANY = "Empresa Demo"
 DEMO_PASSWORD = "demo12345"
@@ -442,7 +442,11 @@ def _create_tickets(
 
 
 def _create_knowledge(
-    session: Session, company: Company, admin: User, categories: dict[str, Category]
+    session: Session,
+    company: Company,
+    admin: User,
+    categories: dict[str, Category],
+    entries: list[tuple[str, str, str, str, bool]] = KNOWLEDGE_ARTICLES,
 ) -> list[KnowledgeArticle]:
     articles = [
         KnowledgeArticle(
@@ -457,26 +461,35 @@ def _create_knowledge(
             view_count=(len(title) * 7) % 60,
             helpful_count=(len(summary) * 3) % 20,
         )
-        for category, title, summary, content, featured in KNOWLEDGE_ARTICLES
+        for category, title, summary, content, featured in entries
     ]
     session.add_all(articles)
     session.flush()
     return articles
 
 
-def _index(session: Session, store: VectorStore | None, articles: list[KnowledgeArticle]) -> None:
-    # Indexa no banco vetorial configurado; se estiver fora do ar, os trechos ficam no
-    # banco e a busca de contingência do RAG continua funcionando.
+def _index(session: Session, store: VectorStore | None, company: Company) -> None:
+    # Reconstrói a coleção da empresa inteira: artigos de versões anteriores do seed
+    # ganham os vetores do embedder atual. Com o banco vetorial fora do ar, os trechos
+    # ficam no banco e a busca de contingência do RAG continua funcionando.
     rag = RAGService(session, store or build_vector_store(get_settings()), HashingEmbedder())
-    for article in articles:
-        rag.index_article(article)
+    try:
+        rag.rebuild_company(company.id)
+    except VectorStoreError:
+        rag.reindex_company(company.id)
 
 
 def _complete_knowledge(session: Session, company: Company, store: VectorStore | None) -> bool:
-    """Empresa demo criada por uma versão sem base de conhecimento: adiciona os artigos."""
-    has_articles = session.scalars(
-        select(KnowledgeArticle.id).where(KnowledgeArticle.company_id == company.id)
-    ).first()
+    """Empresa demo criada por uma versão anterior: adiciona os artigos que faltam.
+
+    A comparação é pelo título, então rodar de novo não duplica nada.
+    """
+    existing = set(
+        session.scalars(
+            select(KnowledgeArticle.title).where(KnowledgeArticle.company_id == company.id)
+        )
+    )
+    missing = [entry for entry in KNOWLEDGE_ARTICLES if entry[1] not in existing]
     admin = session.scalars(
         select(User).where(User.company_id == company.id, User.email == "admin@demo.helpdesk")
     ).first()
@@ -485,12 +498,12 @@ def _complete_knowledge(session: Session, company: Company, store: VectorStore |
         for category in session.scalars(select(Category).where(Category.company_id == company.id))
     }
     needed = {category for category, *_ in KNOWLEDGE_ARTICLES}
-    if has_articles or admin is None or not needed <= categories.keys():
+    if not missing or admin is None or not needed <= categories.keys():
         return False
-    articles = _create_knowledge(session, company, admin, categories)
-    _index(session, store, articles)
+    articles = _create_knowledge(session, company, admin, categories, missing)
+    _index(session, store, company)
     session.commit()
-    print(f"Base de conhecimento demo adicionada ({len(articles)} artigos).")
+    print(f"Base de conhecimento demo completada (+{len(articles)} artigos).")
     return True
 
 
@@ -506,8 +519,8 @@ def seed(session: Session, store: VectorStore | None = None) -> bool:
     users = _create_users(session, company, roles)
     categories, policies = _create_sla_and_categories(session, company)
     total = _create_tickets(session, company, users, categories, policies)
-    articles = _create_knowledge(session, company, users.admin, categories)
-    _index(session, store, articles)
+    _create_knowledge(session, company, users.admin, categories)
+    _index(session, store, company)
     session.commit()
     print(f"Empresa demo criada com {total} chamados.")
     return True

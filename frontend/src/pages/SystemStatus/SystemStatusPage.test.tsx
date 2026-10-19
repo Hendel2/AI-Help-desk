@@ -26,7 +26,7 @@ describe('SystemStatusPage', () => {
 
     renderWithProviders(<SystemStatusPage />)
 
-    expect(screen.getByRole('heading', { level: 1, name: 'AI Help Desk' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: 'Status do sistema' })).toBeInTheDocument()
     const status = screen.getByRole('status')
     expect(status).toHaveAttribute('aria-busy', 'true')
     expect(status).toHaveTextContent('Verificando o status da API…')

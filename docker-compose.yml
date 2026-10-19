@@ -61,6 +61,11 @@ services:
       VECTOR_DB_URL: http://vector-db:8000
       JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no arquivo .env (veja o .env.example)}
       UPLOAD_DIR: /app/uploads
+      # IA local de reserva (serviço ollama): assume quando o provedor principal falha
+      # ou a cota acaba. AI_FALLBACK_PROVIDER=none no .env desliga.
+      AI_FALLBACK_PROVIDER: ${AI_FALLBACK_PROVIDER:-ollama}
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3:4b-instruct}
     ports:
       - "8000:8000"
     volumes:
@@ -82,6 +87,38 @@ services:
       retries: 5
       # Margem para o "alembic upgrade head" executado antes do uvicorn.
       start_period: 30s
+
+  ollama:
+    # IA local (Ollama), com versão fixada. Sem GPU NVIDIA, o modelo roda no processador.
+    image: ollama/ollama:0.34.4
+    environment:
+      # Mantém o modelo na memória por 30 min após o uso (carregar leva alguns segundos).
+      OLLAMA_KEEP_ALIVE: 30m
+      # Um modelo e uma resposta por vez: o modelo padrão ocupa ~4 GB com o contexto, e
+      # dois juntos esgotam a memória da VM do Docker (8 GB por padrão no Windows).
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_NUM_PARALLEL: "1"
+    # Sem "ports": a API do Ollama não tem autenticação, só o backend (rede do compose) a usa.
+    volumes:
+      - ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  ollama-pull:
+    # Baixa o modelo local na primeira subida (~2,5 GB) e encerra; depois só confere.
+    # Enquanto o download não termina, o chat usa o provedor principal ou o modo sem IA.
+    image: ollama/ollama:0.34.4
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["ollama", "pull", "${OLLAMA_MODEL:-qwen3:4b-instruct}"]
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
 
   frontend:
     build: ./frontend
@@ -106,3 +143,4 @@ volumes:
   mysql-data:
   chroma-data:
   backend-uploads:
+  ollama-data:

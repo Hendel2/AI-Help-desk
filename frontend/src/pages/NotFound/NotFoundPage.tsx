@@ -1,17 +1,26 @@
-import { Link } from 'react-router'
+import { ArrowLeft } from 'lucide-react'
+
+import { BrandMark } from '@/components/BrandMark'
+import { ButtonLink } from '@/components/ui/ButtonLink'
 
 export function NotFoundPage() {
   return (
-    <main className="mx-auto w-full max-w-2xl px-4 py-16 sm:px-6 sm:py-24">
-      <p className="text-sm font-medium text-secondary">Erro 404</p>
-      <h1 className="mt-2 text-2xl font-semibold tracking-tight">Página não encontrada</h1>
-      <p className="mt-2 text-secondary">O endereço acessado não existe ou foi removido.</p>
-      <Link
+    <main className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6">
+      <BrandMark />
+      <h1 className="mt-16 text-2xl font-semibold tracking-tight text-text">
+        Página não encontrada
+      </h1>
+      <p className="mt-2 text-secondary">
+        O endereço não existe ou foi removido. Confira o link ou volte para o início.
+      </p>
+      <ButtonLink
         to="/"
-        className="mt-6 inline-flex rounded-sm text-sm font-medium text-text underline underline-offset-4 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        variant="secondary"
+        className="mt-6"
+        icon={<ArrowLeft aria-hidden="true" className="size-4" />}
       >
         Voltar para o início
-      </Link>
+      </ButtonLink>
     </main>
   )
 }

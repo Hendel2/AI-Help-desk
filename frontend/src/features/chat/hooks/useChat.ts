@@ -5,8 +5,18 @@ import type { Conversation } from '../types'
 
 export const chatKeys = {
   all: ['chat'] as const,
+  assistant: () => [...chatKeys.all, 'assistant'] as const,
   list: () => [...chatKeys.all, 'list'] as const,
   detail: (id: number) => [...chatKeys.all, 'detail', id] as const,
+}
+
+/** Se o assistente responde com IA (só muda quando o servidor é reconfigurado). */
+export function useAssistantInfo() {
+  return useQuery({
+    queryKey: chatKeys.assistant(),
+    queryFn: ({ signal }) => chatService.assistant(signal),
+    staleTime: 5 * 60_000,
+  })
 }
 
 export function useConversations() {

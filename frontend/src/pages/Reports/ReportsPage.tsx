@@ -24,6 +24,11 @@ const ACTION_LABELS: Record<AIActionType, string> = {
   RAG_SEARCH: 'Buscas na base',
 }
 
+function feedbackCaption(count: number): string {
+  if (count === 0) return 'nenhuma avaliação ainda'
+  return count === 1 ? '1 avaliação' : `${count.toLocaleString('pt-BR')} avaliações`
+}
+
 const percent = (value: number | null) => (value === null ? null : formatPercent(value))
 
 /** Indicadores (§41, etapa 18): desempenho do assistente, uso da IA e AI Insights. */
@@ -83,7 +88,7 @@ export function ReportsPage() {
             label="Avaliações positivas"
             value={ai.data ? percent(ai.data.positive_feedback_pct) : null}
             caption={
-              ai.data ? `${ai.data.feedback_count.toLocaleString('pt-BR')} avaliação(ões)` : undefined
+              ai.data ? feedbackCaption(ai.data.feedback_count) : undefined
             }
             icon={ThumbsUp}
             isLoading={ai.isPending}

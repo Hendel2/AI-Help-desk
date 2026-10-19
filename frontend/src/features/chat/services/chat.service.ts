@@ -1,9 +1,10 @@
 import { get, post } from '@/services/api/client'
 
-import type { ChatTurn, Conversation, ConversationSummary } from '../types'
+import type { AssistantInfo, ChatTurn, Conversation, ConversationSummary } from '../types'
 
 /** Chamadas HTTP do Assistente de TI. */
 export const chatService = {
+  assistant: (signal?: AbortSignal) => get<AssistantInfo>('/chat/assistant', { signal }),
   list: (signal?: AbortSignal) => get<ConversationSummary[]>('/chat/conversations', { signal }),
   get: (id: number, signal?: AbortSignal) =>
     get<Conversation>(`/chat/conversations/${id}`, { signal }),

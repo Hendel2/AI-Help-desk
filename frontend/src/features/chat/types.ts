@@ -35,3 +35,11 @@ export interface ChatTurn {
   user_message: ChatMessageData
   assistant_message: ChatMessageData
 }
+
+/** Como o assistente responde agora (`GET /chat/assistant`). */
+export interface AssistantInfo {
+  /** Sem IA, o assistente só sugere procedimentos da base de conhecimento e abre chamados. */
+  ai_enabled: boolean
+  /** IA local no processador: cada resposta leva dezenas de segundos. */
+  slow_responses: boolean
+}

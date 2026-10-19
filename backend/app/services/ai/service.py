@@ -43,14 +43,19 @@ class AIService:
         return self.provider.model if self.provider else HEURISTIC_MODEL
 
     def classify(
-        self, user: User, text: str, *, input_reference: str = "draft"
+        self, user: User, text: str, *, input_reference: str = "draft", use_llm: bool = True
     ) -> ClassificationResult:
+        """Classifica pelo LLM (se houver) ou pela heurística local.
+
+        `use_llm=False` força a heurística: o chat usa isso para a intenção de cada
+        mensagem, deixando a única chamada de IA para a resposta da conversa.
+        """
         categories = list(CategoryRepository(self.session).list_active(user.company_id))
         names = [category.name for category in categories]
         defaults = {category.name: category.default_priority for category in categories}
 
         classification: Classification | None = None
-        if self.provider is not None:
+        if self.provider is not None and use_llm:
             started = time.perf_counter()
             try:
                 classification, llm = classify_with_llm(self.provider, text, names)

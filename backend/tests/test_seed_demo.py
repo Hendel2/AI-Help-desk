@@ -2,9 +2,11 @@
 
 from typing import Any
 
+import pytest
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
+from app.cli.demo_knowledge import KNOWLEDGE_ARTICLES
 from app.cli.seed_demo import DEMO_COMPANY, seed
 from app.models import Company, KnowledgeArticle, KnowledgeChunk, Ticket, TicketHistory, User
 from app.models.enums import RoleName, TicketStatus
@@ -89,7 +91,7 @@ def test_seed_creates_searchable_knowledge(
         "/api/v1/knowledge/suggest?q=minha vpn diz falha de autenticação", headers=headers
     ).json()
 
-    assert listing["total"] == 8
+    assert listing["total"] == len(KNOWLEDGE_ARTICLES)
     assert suggestions[0]["title"] == "Falha de autenticação na VPN"
 
 
@@ -108,3 +110,78 @@ def test_seed_completes_knowledge_missing_from_an_older_demo(
     rag = RAGService(db_session, store, HashingEmbedder())
     assert rag.search(company.id, "VPN não conecta, falha de autenticação")
     assert seed(db_session, store=store) is False  # agora está completa
+
+
+def test_seed_adds_articles_missing_from_a_partial_knowledge_base(
+    db_session: Session, seed_roles: dict[RoleName, Any]
+) -> None:
+    store = InMemoryVectorStore()
+    assert seed(db_session, store=store)
+    company = db_session.scalars(select(Company).where(Company.name == DEMO_COMPANY)).one()
+    # Simula uma versão anterior do seed, que tinha só parte dos artigos.
+    removed = db_session.scalars(
+        select(KnowledgeArticle).where(
+            KnowledgeArticle.title == "Mouse falhando ou com mau contato"
+        )
+    ).one()
+    db_session.execute(delete(KnowledgeChunk).where(KnowledgeChunk.article_id == removed.id))
+    db_session.delete(removed)
+    db_session.commit()
+
+    assert seed(db_session, store=store) is True
+
+    titles = db_session.scalars(
+        select(KnowledgeArticle.title).where(KnowledgeArticle.company_id == company.id)
+    ).all()
+    assert sorted(titles) == sorted(title for _, title, *_ in KNOWLEDGE_ARTICLES)
+    rag = RAGService(db_session, store, HashingEmbedder())
+    assert rag.search(company.id, "Mouse com mal contato")[0].title == (
+        "Mouse falhando ou com mau contato"
+    )
+
+
+@pytest.mark.parametrize(
+    ("question", "expected_title"),
+    [
+        ("Mouse com mal contato", "Mouse falhando ou com mau contato"),
+        ("Minha internet ta ruim", "Internet lenta"),
+        ("a internet fica caindo", "Internet lenta"),
+        ("o teclado parou de funcionar", "Teclado não funciona ou com teclas falhando"),
+        ("meu computador está muito lento", "Computador muito lento"),
+        ("a impressora não imprime", "Impressora não imprime"),
+        ("o wifi não conecta", "Wi-Fi não conecta ou está sem internet"),
+        ("recebi um email suspeito pedindo minha senha", "E-mail suspeito ou golpe (phishing)"),
+        ("outlook não abre", "Outlook não abre ou não sincroniza"),
+        ("recebi um email estranho pedindo minha senha", "E-mail suspeito ou golpe (phishing)"),
+        ("apaguei um arquivo sem querer", "Recuperar arquivo apagado por engano"),
+        ("a câmera não funciona no teams", "Câmera não funciona nas reuniões"),
+        (
+            "o código de verificação não chega",
+            "Código de verificação (MFA) não chega ou troquei de celular",
+        ),
+    ],
+)
+def test_demo_knowledge_answers_common_questions_without_ai(
+    db_session: Session, seed_roles: dict[RoleName, Any], question: str, expected_title: str
+) -> None:
+    """Sem IA, o assistente depende desta busca: o artigo certo precisa vir primeiro."""
+    store = InMemoryVectorStore()
+    seed(db_session, store=store)
+    company = db_session.scalars(select(Company).where(Company.name == DEMO_COMPANY)).one()
+
+    sources = RAGService(db_session, store, HashingEmbedder()).search(company.id, question)
+
+    assert sources and sources[0].title == expected_title
+
+
+@pytest.mark.parametrize(
+    "question", ["O ar-condicionado da sala está pingando", "qual o cardápio do almoço de hoje"]
+)
+def test_demo_knowledge_ignores_unrelated_questions(
+    db_session: Session, seed_roles: dict[RoleName, Any], question: str
+) -> None:
+    store = InMemoryVectorStore()
+    seed(db_session, store=store)
+    company = db_session.scalars(select(Company).where(Company.name == DEMO_COMPANY)).one()
+
+    assert RAGService(db_session, store, HashingEmbedder()).search(company.id, question) == []

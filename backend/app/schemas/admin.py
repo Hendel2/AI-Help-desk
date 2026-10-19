@@ -192,6 +192,9 @@ class AISettingsRead(BaseModel):
 
     provider: str
     model: str | None
+    #: Reserva quando o principal falha ou a cota acaba (ex.: IA local).
+    fallback_provider: str | None = None
+    fallback_model: str | None = None
     generative_enabled: bool
     vector_store: str
     actions_last_30_days: int

@@ -53,6 +53,10 @@ class VectorStore(Protocol):
 
     def query(self, company_id: int, embedding: list[float], k: int) -> list[VectorMatch]: ...
 
+    def reset(self, company_id: int) -> None:
+        """Apaga a coleção da empresa (para reconstruir o índice do zero)."""
+        ...
+
 
 def collection_name(company_id: int) -> str:
     if isinstance(company_id, bool) or not isinstance(company_id, int) or company_id <= 0:
@@ -80,6 +84,10 @@ class InMemoryVectorStore:
             collection = self._data.get(collection_name(company_id), {})
             for key in [k for k, r in collection.items() if r.article_id == article_id]:
                 del collection[key]
+
+    def reset(self, company_id: int) -> None:
+        with self._lock:
+            self._data.pop(collection_name(company_id), None)
 
     def query(self, company_id: int, embedding: list[float], k: int) -> list[VectorMatch]:
         with self._lock:
@@ -183,6 +191,15 @@ class ChromaVectorStore:
         except Exception as exc:
             self._trip()
             raise VectorStoreError("Falha ao remover do banco vetorial.") from exc
+
+    def reset(self, company_id: int) -> None:
+        # A coleção é criada antes (se faltar) para a exclusão nunca falhar por "não existe".
+        self._collection(company_id)
+        try:
+            self._connect().delete_collection(collection_name(company_id))
+        except Exception as exc:
+            self._trip()
+            raise VectorStoreError("Falha ao apagar a coleção do banco vetorial.") from exc
 
     def query(self, company_id: int, embedding: list[float], k: int) -> list[VectorMatch]:
         try:

@@ -5,6 +5,9 @@ termos e bigramas normalizados (sem acento, sem stopwords, com radical
 simplificado) num vetor de dimensão fixa via *feature hashing*. Captura bem a
 sobreposição de vocabulário típica de suporte ("vpn", "senha", "impressora").
 
+Trocar a dimensão ou a normalização muda todos os vetores: depois disso, rode
+`python -m app.cli.reindex_knowledge` (até lá, o RAG usa a busca de contingência).
+
 A interface `Embedder` permite trocar por um modelo de embeddings semântico
 sem alterar o restante do RAG.
 """
@@ -17,7 +20,18 @@ from typing import Protocol
 
 from app.services.ai.classifier import normalize
 
-DIMENSIONS = 512
+#: Vetores maiores = menos colisões entre termos (menos artigos sem relação no resultado).
+DIMENSIONS = 4096
+#: Radical por prefixo: "funcionar", "funciona" e "funcionando" viram "funcio".
+STEM_LENGTH = 6
+#: Grafias diferentes da mesma coisa (comparadas já no singular e sem acento).
+_ALIASES = {
+    "email": "e-mail",
+    "wifi": "wi-fi",
+    "pendrive": "pen-drive",
+    "pc": "computador",
+    "laptop": "notebook",
+}
 
 _STOPWORDS = frozenset(
     [
@@ -115,17 +129,22 @@ class Embedder(Protocol):
 
 
 def _stem(token: str) -> str:
-    """Singular simples para pt-BR (sem acentos): "configuracoes" → "configuracao",
-    "impressoras" → "impressora", "redes" → "rede". Previsível de propósito."""
-    if len(token) <= 3:
-        return token
-    if token.endswith("coes"):
-        return token[:-4] + "cao"
-    if token.endswith("oes"):
-        return token[:-3] + "ao"
-    if token.endswith("s") and not token.endswith("ss"):
-        return token[:-1]
-    return token
+    """Radical simples para pt-BR (sem acentos), previsível de propósito.
+
+    1. singular: "configuracoes" → "configuracao", "impressoras" → "impressora";
+    2. grafias equivalentes: "email" → "e-mail", "wifi" → "wi-fi";
+    3. prefixo de `STEM_LENGTH` letras, que junta flexões: "impressora" e
+       "impressao" → "impres". Palavras com hífen ficam inteiras.
+    """
+    if len(token) > 3:
+        if token.endswith("coes"):
+            token = token[:-4] + "cao"
+        elif token.endswith("oes"):
+            token = token[:-3] + "ao"
+        elif token.endswith("s") and not token.endswith("ss"):
+            token = token[:-1]
+    token = _ALIASES.get(token, token)
+    return token if "-" in token else token[:STEM_LENGTH]
 
 
 def tokenize(text: str) -> list[str]:
@@ -141,7 +160,7 @@ def _bucket(feature: str) -> tuple[int, float]:
 
 
 class HashingEmbedder:
-    name = "hashing-v1"
+    name = "hashing-v2"
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         return [self._embed_one(text) for text in texts]

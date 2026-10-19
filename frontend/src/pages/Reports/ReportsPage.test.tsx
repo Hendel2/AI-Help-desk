@@ -59,7 +59,7 @@ describe('ReportsPage', () => {
 
     const tiles = await screen.findByRole('region', { name: 'Assistente de TI' })
     expect(await within(tiles).findByText('75%')).toBeInTheDocument()
-    expect(within(tiles).getByText('4 avaliação(ões)')).toBeInTheDocument()
+    expect(within(tiles).getByText('4 avaliações')).toBeInTheDocument()
     expect(screen.getByText('Respostas do assistente')).toBeInTheDocument()
     expect(screen.getByText(/Ainda não há volume suficiente/)).toBeInTheDocument()
   })

@@ -13,9 +13,14 @@ from sqlalchemy.orm import Session
 
 from app.models import Company, KnowledgeArticle, KnowledgeChunk, User
 from app.models.enums import ArticleStatus, RoleName
-from app.services.ai.embeddings import HashingEmbedder, cosine
+from app.services.ai.embeddings import HashingEmbedder, cosine, tokenize
 from app.services.ai.rag import RAGService
-from app.services.ai.vector_store import InMemoryVectorStore, VectorStoreError
+from app.services.ai.vector_store import (
+    InMemoryVectorStore,
+    VectorRecord,
+    VectorStoreError,
+    collection_name,
+)
 from app.services.knowledge_text import ExtractionError, chunk_text, extract_text
 
 VPN_ARTICLE = {
@@ -124,6 +129,24 @@ def test_embeddings_bring_related_texts_closer() -> None:
     assert cosine(question, vpn) > cosine(question, printer) + 0.1
 
 
+@pytest.mark.parametrize(
+    ("typed", "written"),
+    [
+        ("emails", "e-mail"),
+        ("wifi", "Wi-Fi"),
+        ("pendrive", "pen-drive"),
+        ("PC", "computador"),
+        ("funcionando", "funcionar"),
+        ("impressão", "impressora"),
+        ("configurações", "configurar"),
+    ],
+)
+def test_tokenizer_matches_what_people_type_with_how_articles_are_written(
+    typed: str, written: str
+) -> None:
+    assert tokenize(typed) == tokenize(written)
+
+
 class TestRAG:
     def test_search_returns_only_published_articles_of_the_company(
         self,
@@ -175,6 +198,30 @@ class TestRAG:
         results = rag.search(company.id, "vpn com falha de autenticação")
 
         assert results and results[0].article_id == article.id
+
+    def test_rebuild_replaces_stale_vectors(
+        self, db_session: Session, people: dict[str, User], company: Company
+    ) -> None:
+        store = InMemoryVectorStore()
+        rag = RAGService(db_session, store, HashingEmbedder())
+        article = KnowledgeArticle(
+            company_id=company.id,
+            title=VPN_ARTICLE["title"],
+            content=VPN_ARTICLE["content"],
+            status=ArticleStatus.PUBLISHED,
+        )
+        db_session.add(article)
+        db_session.flush()
+        rag.index_article(article)
+        # Vetor de uma versão antiga do embedder, sem artigo correspondente.
+        store.upsert(company.id, [VectorRecord("old", [0.0] * 8, "antigo", 999, 0)])
+
+        chunks = rag.rebuild_company(company.id)
+
+        records = store._data[collection_name(company.id)]
+        assert chunks == len(records) >= 1
+        assert {record.article_id for record in records.values()} == {article.id}
+        assert rag.search(company.id, "vpn com falha de autenticação")[0].article_id == article.id
 
     def test_rejects_queries_without_company(self, db_session: Session) -> None:
         rag = RAGService(db_session, InMemoryVectorStore(), HashingEmbedder())

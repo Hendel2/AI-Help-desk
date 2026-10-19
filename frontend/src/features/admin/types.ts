@@ -110,6 +110,9 @@ export interface AuditListParams {
 export interface AISettings {
   provider: string
   model: string | null
+  /** Assume se o provedor principal falhar ou a cota acabar (ex.: IA local). */
+  fallback_provider: string | null
+  fallback_model: string | null
   generative_enabled: boolean
   vector_store: string
   actions_last_30_days: number

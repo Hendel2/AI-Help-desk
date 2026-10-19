@@ -146,6 +146,13 @@ function CompanyForm({ company }: { company: Company }) {
   )
 }
 
+const PROVIDER_LABELS: Record<string, string> = {
+  none: 'Nenhum',
+  gemini: 'Google Gemini',
+  anthropic: 'Anthropic Claude',
+  ollama: 'IA local (Ollama)',
+}
+
 /** Taxas chegam de 0 a 1. */
 const percent = (rate: number | null) => (rate === null ? '—' : formatPercent(rate * 100))
 
@@ -159,8 +166,15 @@ function AISummary({ settings }: { settings: AISettings }) {
         </Badge>
       ),
     },
-    { label: 'Provedor', value: settings.provider === 'none' ? 'Nenhum' : settings.provider },
+    { label: 'Provedor', value: PROVIDER_LABELS[settings.provider] ?? settings.provider },
     { label: 'Modelo', value: settings.model ?? '—' },
+    {
+      // Assume se o provedor principal falhar ou a cota acabar.
+      label: 'Reserva',
+      value: settings.fallback_provider
+        ? `${PROVIDER_LABELS[settings.fallback_provider] ?? settings.fallback_provider} · ${settings.fallback_model ?? '—'}`
+        : 'Nenhuma',
+    },
     {
       label: 'Banco vetorial',
       value: settings.vector_store === 'chroma' ? 'ChromaDB' : 'Em memória',
@@ -183,8 +197,9 @@ function AISummary({ settings }: { settings: AISettings }) {
         ))}
       </dl>
       <p className="text-xs text-secondary">
-        Provedor, modelo e chaves são definidos nas variáveis de ambiente do servidor
-        (AI_PROVIDER, AI_MODEL, AI_API_KEY) e nunca ficam visíveis no navegador.
+        Provedor, modelo, reserva e chaves são definidos nas variáveis de ambiente do servidor
+        (AI_PROVIDER, AI_MODEL, AI_API_KEY, AI_FALLBACK_PROVIDER, OLLAMA_MODEL) e nunca ficam
+        visíveis no navegador.
       </p>
     </div>
   )

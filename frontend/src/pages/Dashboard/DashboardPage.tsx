@@ -156,7 +156,9 @@ export function DashboardPage() {
             action={
               metrics.data ? (
                 <span className="text-xs text-secondary">
-                  {metrics.data.sla_breached} vencido(s) agora
+                  {metrics.data.sla_breached === 0
+                    ? 'nenhum vencido agora'
+                    : `${metrics.data.sla_breached} ${metrics.data.sla_breached === 1 ? 'vencido' : 'vencidos'} agora`}
                 </span>
               ) : null
             }
@@ -204,14 +206,18 @@ function Tiles({
   periodCaption: string
 }) {
   const loading = metrics === undefined
-  const value = (key: keyof DashboardMetrics) =>
-    metrics ? String(metrics[key] ?? '—') : null
+  const value = (key: keyof DashboardMetrics) => (metrics ? String(metrics[key] ?? '—') : null)
 
   if (role === 'USER') {
     return (
       <>
         <StatTile label="Abertos" value={value('open')} icon={Inbox} isLoading={loading} />
-        <StatTile label="Em andamento" value={value('in_progress')} icon={Clock} isLoading={loading} />
+        <StatTile
+          label="Em andamento"
+          value={value('in_progress')}
+          icon={Clock}
+          isLoading={loading}
+        />
         <StatTile
           label="Aguardando você"
           value={value('waiting_user')}
@@ -219,7 +225,12 @@ function Tiles({
           tone={metrics && metrics.waiting_user > 0 ? 'warning' : 'neutral'}
           isLoading={loading}
         />
-        <StatTile label="Resolvidos" value={value('resolved')} icon={CheckCircle2} isLoading={loading} />
+        <StatTile
+          label="Resolvidos"
+          value={value('resolved')}
+          icon={CheckCircle2}
+          isLoading={loading}
+        />
       </>
     )
   }
@@ -265,7 +276,13 @@ function Tiles({
       />
       <StatTile
         label="Tempo médio de resolução"
-        value={metrics?.avg_resolution_minutes != null ? formatMinutes(metrics.avg_resolution_minutes) : loading ? null : '—'}
+        value={
+          metrics?.avg_resolution_minutes != null
+            ? formatMinutes(metrics.avg_resolution_minutes)
+            : loading
+              ? null
+              : '—'
+        }
         caption={periodCaption}
         icon={Timer}
         isLoading={loading}
@@ -305,7 +322,9 @@ function CategoryBars({ data }: { data: DashboardTickets }) {
     return <p className="text-sm text-secondary">Nenhum chamado no período.</p>
   }
   return (
-    <BarList items={data.by_category.slice(0, 8).map((item) => ({ label: item.label, value: item.count }))} />
+    <BarList
+      items={data.by_category.slice(0, 8).map((item) => ({ label: item.label, value: item.count }))}
+    />
   )
 }
 

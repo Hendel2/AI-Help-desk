@@ -11,8 +11,9 @@ Plataforma SaaS multiempresa que une a operação completa de um Help Desk (cham
 - **Multiempresa de verdade:** isolamento por empresa garantido na camada de dados e coberto por testes.
 - **IA com guarda-corpos:** RAG restrito à empresa, respostas com fontes, saídas do LLM validadas e nenhuma ação automática sem revisão humana.
 - **Regras de negócio no backend:** fluxo de status, SLA e permissões validados no servidor, não na interface.
-- **Interface de produto B2B:** design system próprio, responsiva (sidebar vira drawer no mobile) e acessível (teclado, foco visível, leitores de tela).
-- **Pronto para rodar:** um `docker compose up` sobe frontend, API, MySQL e banco vetorial, com dados de demonstração.
+- **Interface de produto B2B:** design system próprio com tema claro e escuro, responsiva (sidebar vira drawer no mobile) e acessível (teclado, foco visível, leitores de tela, contraste WCAG AA nos dois temas).
+- **Prazo à vista:** cada chamado aberto mostra uma linha de prazo com quanto do SLA já foi consumido — neutra no prazo, âmbar perto do vencimento, vermelha quando vence.
+- **Pronto para rodar:** um `docker compose up` sobe frontend, API, MySQL, banco vetorial e uma IA local, com dados de demonstração.
 
 ## Início rápido
 
@@ -79,7 +80,7 @@ Equipes de TI recebem um grande volume de solicitações repetitivas, perdem pra
 - Estados **No prazo**, **Próximo do vencimento** e **Vencido**, recalculados ao mudar categoria ou prioridade.
 
 ### Inteligência Artificial
-- **Assistente de TI:** chatbot que responde com base na base de conhecimento, cita as fontes e escala para um chamado quando necessário (`source=CHATBOT`).
+- **Assistente de TI:** conversa com a pessoa para diagnosticar e resolver o problema (com IA) ou responde com a base de conhecimento (sem IA), cita as fontes e só abre um chamado quando necessário (`source=CHATBOT`).
 - **Classificação automática** de intenção, categoria e prioridade, sempre validada pelo backend.
 - **AI Copilot** para técnicos: resumir chamado, sugerir solução, encontrar artigos, gerar resposta e analisar histórico. A resposta é editável e nunca é enviada automaticamente.
 - **AI Insights** e **Indicadores** de IA: tendências por categoria, gargalos de resolução, conversas resolvidas pelo assistente e avaliações — números calculados a partir dos dados, nunca estimados pelo modelo.
@@ -134,6 +135,8 @@ No frontend, os dados seguem o fluxo **Componente → Hook → TanStack Query �
 | `backend` | `./backend` | `8000 → 8000` | API FastAPI; aplica as migrations ao iniciar |
 | `mysql` | `mysql:8.4` | `127.0.0.1:3307 → 3306` | Banco relacional (utf8mb4, UTC) |
 | `vector-db` | `chromadb/chroma` | `127.0.0.1:8001 → 8000` | Banco vetorial do RAG |
+| `ollama` | `ollama/ollama` | — (só na rede interna) | IA local de reserva (sem chave, sem cota) |
+| `ollama-pull` | `ollama/ollama` | — | Baixa o modelo local na primeira subida (~2,5 GB) e encerra |
 
 ## Stack
 
@@ -141,7 +144,7 @@ No frontend, os dados seguem o fluxo **Componente → Hook → TanStack Query �
 |--------|-------------|
 | Backend | Python, FastAPI, SQLAlchemy 2, Alembic, Pydantic, JWT, Argon2 |
 | Banco de dados | MySQL 8.4 |
-| Frontend | React 19, TypeScript, Vite, Tailwind CSS 4, React Router, TanStack Query, React Hook Form, Zod, Lucide |
+| Frontend | React 19, TypeScript, Vite, Tailwind CSS 4, React Router, TanStack Query, React Hook Form, Zod, Lucide, IBM Plex Sans |
 | IA e RAG | Camada de abstração de LLM, ChromaDB |
 | Qualidade | Pytest, Ruff, Vitest, Testing Library, ESLint (com regras de acessibilidade) |
 | Infraestrutura | Docker, Docker Compose |
@@ -243,7 +246,7 @@ python -m app.cli.seed_demo
 | `tecnico@demo.helpdesk` | Técnico | `demo12345` |
 | `usuario@demo.helpdesk` | Usuário | `demo12345` |
 
-O comando é idempotente e não roda em produção.
+O comando é idempotente e não roda em produção. A empresa demo vem com 52 artigos sobre os problemas mais comuns (mouse, teclado, monitor, Wi-Fi, VPN, Outlook, Teams, impressora, senha, MFA, golpes por e-mail…). Rodar de novo numa base criada por uma versão anterior adiciona os artigos que faltam.
 
 ## Variáveis de ambiente
 
@@ -257,7 +260,8 @@ O comando é idempotente e não roda em produção.
 | `SLA_MONITOR_INTERVAL_SECONDS` | backend | Intervalo do monitor de alertas de SLA (`0` desliga) |
 | `CORS_ORIGINS` | backend | Origens permitidas, separadas por vírgula |
 | `LOG_LEVEL` | backend | Nível dos logs estruturados (JSON) |
-| `AI_PROVIDER` / `AI_API_KEY` / `AI_MODEL` | backend | Provedor e modelo de LLM |
+| `AI_PROVIDER` / `AI_API_KEY` / `AI_MODEL` | backend | Provedor e modelo de LLM principal |
+| `AI_FALLBACK_PROVIDER` / `OLLAMA_URL` / `OLLAMA_MODEL` | backend | IA de reserva (padrão no Docker: `ollama`, a IA local) |
 | `VECTOR_STORE_PROVIDER` / `VECTOR_DB_URL` | backend | Banco vetorial (`chroma` ou `memory`) e endereço do ChromaDB |
 | `UPLOAD_DIR` / `MAX_UPLOAD_SIZE_MB` | backend | Armazenamento e limite de anexos |
 | `MYSQL_ROOT_PASSWORD` / `MYSQL_PASSWORD` | Docker | Senhas do MySQL |
@@ -321,10 +325,24 @@ Listagens são paginadas: `{ "items": [], "total": 0, "page": 1, "page_size": 20
 
 ## IA e RAG
 
+O Assistente de TI conversa de verdade: com IA, ele entende o problema, faz perguntas para diagnosticar, propõe passos que a própria pessoa consegue executar e só abre um chamado quando a equipe precisa assumir — ou quando a pessoa pede. Ao abrir, a IA resume a conversa (título, o que já foi tentado, categoria e prioridade) e a transcrição vai junto para o técnico.
+
 ```
-Pergunta → Embedding → Busca vetorial (filtrada por empresa) → Trechos relevantes → LLM → Resposta validada com fontes
+Mensagem + histórico → Busca na base da empresa (reforço) → LLM → Resposta validada (diagnóstico, resolvido ou escalar)
 ```
 
+A IA funciona em cadeia, para o assistente nunca ficar sem resposta:
+
+| Ordem | Quem responde | Quando |
+|-------|---------------|--------|
+| 1 | Provedor principal (`AI_PROVIDER`: Gemini ou Claude) | Sempre que configurado e disponível |
+| 2 | IA local (`AI_FALLBACK_PROVIDER=ollama`) | Se o principal falhar, ficar fora do ar ou a cota acabar — ou sozinha, sem principal |
+| 3 | Assistente básico, sem IA | Se nenhuma IA responder: guia pelos procedimentos da base de conhecimento |
+
+- Para ativar o Gemini: `AI_PROVIDER=gemini` e `AI_API_KEY` no `.env` (camada gratuita em https://aistudio.google.com/apikey).
+- A IA local (`qwen3:4b-instruct`, via Ollama) já vem ligada no Docker Compose: não precisa de chave, não tem cota e as conversas não saem da máquina. Sem GPU, roda no processador — cada resposta leva de 20 s a 1 min e a qualidade é menor que a do Gemini. Ocupa ~4 GB de memória enquanto carregada (o compose limita a um modelo por vez).
+- Sem nenhuma IA, o assistente básico cumprimenta, pede detalhes quando a mensagem é vaga, envia o procedimento mais relevante sem repetir artigo, guia passo a passo quando a pessoa diz "não entendi" e oferece o chamado quando a base não resolve. O chat mostra o selo **Sem IA** nesse modo.
+- Embeddings locais (`HashingEmbedder`, sem chave de API) com radical das palavras e grafias equivalentes (`email`/`e-mail`, `wifi`/`Wi-Fi`). Depois de uma atualização que muda o embedder, reconstrua o índice: `docker compose exec backend python -m app.cli.reindex_knowledge` (até lá, a busca usa a contingência, mais lenta).
 - O RAG consulta apenas a base de conhecimento da empresa do usuário.
 - As respostas do assistente indicam as fontes utilizadas e não inventam procedimentos internos.
 - Toda saída estruturada do LLM (ex.: classificação) é validada pelo backend antes de ser usada.

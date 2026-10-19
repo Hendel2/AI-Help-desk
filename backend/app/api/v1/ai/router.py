@@ -144,4 +144,4 @@ def ai_settings(
     settings: SettingsDep,
     provider: Annotated[LLMProvider | None, Depends(get_ai_provider)],
 ) -> AISettingsRead:
-    return service.ai_settings(settings, provider.model if provider else None)
+    return service.ai_settings(settings, provider)

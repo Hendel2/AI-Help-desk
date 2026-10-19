@@ -4,12 +4,15 @@ from collections.abc import Callable
 from typing import Any
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.v1.ai.router import get_ai_provider
 from app.models import AuditLog, Company, Ticket, User
 from app.models.enums import AuditAction, RoleName, TicketStatus
+from app.services.ai.provider import FallbackProvider, OllamaProvider
 
 Headers = Callable[[User], dict[str, str]]
 
@@ -348,12 +351,34 @@ def test_ai_settings_read_only(
     assert body == {
         "provider": "none",
         "model": None,
+        "fallback_provider": None,
+        "fallback_model": None,
         "generative_enabled": False,
         "vector_store": "memory",
         "actions_last_30_days": 0,
         "success_rate": None,
         "positive_feedback_rate": None,
     }
+
+
+def test_ai_settings_show_the_fallback_chain(
+    app: FastAPI, client: TestClient, people: dict[str, User], admin: dict[str, str]
+) -> None:
+    class CloudProvider:  # só nome e modelo importam: nenhuma chamada é feita
+        name = "gemini"
+        model = "modelo-principal"
+
+        def complete(self, **kwargs: Any) -> Any:
+            raise AssertionError("a tela de configuração não chama a IA")
+
+    local = OllamaProvider(base_url="http://ollama:11434", model="qwen3:4b-instruct")
+    app.dependency_overrides[get_ai_provider] = lambda: FallbackProvider(CloudProvider(), local)
+
+    body = client.get("/api/v1/ai/settings", headers=admin).json()
+
+    assert (body["provider"], body["model"]) == ("gemini", "modelo-principal")
+    assert (body["fallback_provider"], body["fallback_model"]) == ("ollama", "qwen3:4b-instruct")
+    assert body["generative_enabled"] is True
 
 
 def test_staff_with_active_tickets_must_be_reassigned_first(

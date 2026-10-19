@@ -4,8 +4,9 @@ Fluxo de cada mensagem:
 1. credenciais digitadas são removidas antes de gravar/enviar à IA (§31);
 2. a intenção é classificada (§27);
 3. status de chamado → resposta com dados reais do usuário (sem IA);
-   pedido de chamado ou "não resolveu" → sugere escalar;
-   demais → RAG + resposta (LLM ou heurística), sempre com fontes;
+   com IA → conversa de suporte com histórico, usando a base como reforço;
+   sem IA (ou se todos os provedores falharem) → assistente básico sobre a base
+   de conhecimento, com passo a passo (`basic_assistant.py`);
 4. tudo é registrado: mensagens, `ai_actions` (§69) e, na escalada, o chamado
    com `source=CHATBOT` (§65).
 """
@@ -33,18 +34,30 @@ from app.models.enums import (
     TicketSource,
 )
 from app.repositories.chat import ConversationRepository
-from app.repositories.ticket import TicketRepository
+from app.repositories.knowledge import KnowledgeArticleRepository
+from app.repositories.ticket import CategoryRepository, TicketRepository
 from app.schemas.ticket import TicketCreate
 from app.services.ai.assistant import (
     CREDENTIAL_WARNING,
     AssistantReply,
     InvalidAnswerError,
-    answer_heuristic,
-    answer_with_llm,
+    TicketDraft,
+    converse_with_llm,
     redact_secrets,
-    says_not_solved,
+    summarize_for_ticket,
 )
-from app.services.ai.provider import AIProviderError, LLMProvider
+from app.services.ai.basic_assistant import (
+    ArticleText,
+    BasicAssistant,
+    PastMessage,
+    first_problem,
+)
+from app.services.ai.provider import (
+    AIProviderError,
+    FallbackProvider,
+    LLMProvider,
+    OllamaProvider,
+)
 from app.services.ai.rag import RAGService
 from app.services.ai.service import AIService
 from app.services.tickets import TicketService
@@ -75,6 +88,19 @@ class ChatService:
         self.conversations = ConversationRepository(session)
         self.tickets = TicketRepository(session)
 
+    @property
+    def ai_enabled(self) -> bool:
+        """Há um provedor de IA; sem ele, responde o assistente básico (base de conhecimento)."""
+        return self.provider is not None
+
+    @property
+    def slow_responses(self) -> bool:
+        """A IA principal é a local (processador): a tela avisa que a resposta demora."""
+        provider = self.provider
+        if isinstance(provider, FallbackProvider):
+            provider = provider.primary
+        return isinstance(provider, OllamaProvider)
+
     # --- Conversas ----------------------------------------------------------
 
     def create(self, user: User) -> Conversation:
@@ -104,9 +130,13 @@ class ChatService:
             )
 
         text, had_secret = redact_secrets(content.strip())
-        history = [(m.role.value, m.content) for m in conversation.messages]
+        history = [
+            PastMessage(m.role.value, m.content, tuple(s["article_id"] for s in m.sources or []))
+            for m in conversation.messages
+        ]
+        # Intenção pela heurística local (sem custo): a chamada de IA fica para a resposta.
         classification = self.ai.classify(
-            user, text, input_reference=f"conversation:{conversation.id}"
+            user, text, input_reference=f"conversation:{conversation.id}", use_llm=False
         ).classification
 
         user_message = Message(
@@ -142,27 +172,19 @@ class ChatService:
         conversation: Conversation,
         text: str,
         intent: ChatIntent,
-        history: list[tuple[str, str]],
+        history: list[PastMessage],
     ) -> AssistantReply:
         if intent is ChatIntent.TICKET_STATUS:
             return self._ticket_status(user)
-        if intent is ChatIntent.CREATE_TICKET or (history and says_not_solved(text)):
-            return AssistantReply(
-                text=(
-                    "Entendi. Posso abrir um chamado com a nossa equipe usando o que você "
-                    "descreveu nesta conversa. Deseja abrir agora?"
-                ),
-                sources=[],
-                suggest_ticket=True,
-                mode="heuristic",
-            )
 
-        started = time.perf_counter()
-        sources = self.rag.search(user.company_id, text)
         reference = f"conversation:{conversation.id}"
         if self.provider is not None:
+            # Conversa de suporte de verdade: a IA decide quando a equipe precisa assumir.
+            started = time.perf_counter()
+            sources = self.rag.search(user.company_id, _search_query(text, history))
+            turns = [(m.role, m.content) for m in history]
             try:
-                reply = answer_with_llm(self.provider, text, history, sources)
+                reply = converse_with_llm(self.provider, text, turns, sources)
                 self._log(user, reference, reply, success=True)
                 return reply
             except (AIProviderError, InvalidAnswerError) as exc:
@@ -177,7 +199,10 @@ class ChatService:
                     error=str(exc),
                     latency_ms=int((time.perf_counter() - started) * 1000),
                 )
-        reply = answer_heuristic(sources)
+
+        # Sem IA (ou se todos os provedores falharem): assistente básico sobre a base.
+        started = time.perf_counter()
+        reply = self._basic_assistant(user).reply(text, intent, history)
         self._log(
             user,
             reference,
@@ -186,6 +211,19 @@ class ChatService:
             latency_ms=int((time.perf_counter() - started) * 1000),
         )
         return reply
+
+    def _basic_assistant(self, user: User) -> BasicAssistant:
+        """Assistente sem IA, preso à empresa do usuário (busca e artigos publicados)."""
+        articles = KnowledgeArticleRepository(self.session)
+
+        def load_article(article_id: int) -> ArticleText | None:
+            article = articles.get(user.company_id, article_id, published_only=True)
+            return ArticleText(article.id, article.title, article.content) if article else None
+
+        return BasicAssistant(
+            search=lambda query: self.rag.search(user.company_id, query),
+            load_article=load_article,
+        )
 
     def _ticket_status(self, user: User) -> AssistantReply:
         tickets = self.tickets.active_for_requester(user.company_id, user.id, limit=5)
@@ -215,27 +253,43 @@ class ChatService:
                 "Descreva o problema antes de abrir um chamado.", code="CONVERSATION_EMPTY"
             )
 
-        first = user_messages[0]
-        title = first if len(first) <= 120 else first[:117].rstrip() + "..."
-        title = title if len(title) >= 5 else f"Solicitação: {title}"
         transcript = "\n".join(
             f"{'Usuário' if m.role is MessageRole.USER else 'Assistente'}: {m.content}"
             for m in conversation.messages
             if m.role is not MessageRole.SYSTEM
         )
-        description = (
-            "Chamado aberto pelo Assistente de TI após a conversa abaixo.\n\n" + transcript
-        )[:20_000]
-        classification = self.ai.classify(
-            user, "\n".join(user_messages), input_reference=f"conversation:{conversation.id}"
-        )
+        draft = self._ticket_draft(user, conversation.id, transcript)
+        if draft is not None:
+            # A equipe recebe o resumo da IA e, abaixo, a conversa completa.
+            title = draft.title
+            description = f"{draft.description}\n\nConversa com o Assistente de TI:\n{transcript}"
+            categories = CategoryRepository(self.session).list_active(user.company_id)
+            category = next((c for c in categories if c.name == draft.category_name), None)
+            category_id = category.id if category else None
+            priority = draft.priority
+        else:
+            first = user_messages[0]
+            title = first if len(first) <= 120 else first[:117].rstrip() + "..."
+            title = title if len(title) >= 5 else f"Solicitação: {title}"
+            description = (
+                "Chamado aberto pelo Assistente de TI após a conversa abaixo.\n\n" + transcript
+            )
+            classification = self.ai.classify(
+                user,
+                "\n".join(user_messages),
+                input_reference=f"conversation:{conversation.id}",
+                use_llm=False,
+            )
+            category_id = classification.category.id if classification.category else None
+            priority = classification.classification.priority
+        description = description[:20_000]
         ticket = TicketService(self.session).create(
             user,
             TicketCreate(
                 title=title,
                 description=description if len(description) >= 10 else f"{description} (chat)",
-                category_id=classification.category.id if classification.category else None,
-                priority=classification.classification.priority,
+                category_id=category_id,
+                priority=priority,
             ),
             source=TicketSource.CHATBOT,
         )
@@ -254,6 +308,60 @@ class ChatService:
         )
         self.session.commit()
         return ticket
+
+    def _ticket_draft(
+        self, user: User, conversation_id: int, transcript: str
+    ) -> TicketDraft | None:
+        """Resumo da conversa pela IA; `None` sem provedor ou se a IA falhar."""
+        if self.provider is None:
+            return None
+        names = [c.name for c in CategoryRepository(self.session).list_active(user.company_id)]
+        started = time.perf_counter()
+        try:
+            draft = summarize_for_ticket(self.provider, transcript, names)
+        except (AIProviderError, InvalidAnswerError) as exc:
+            logger.warning("Resumo do chamado por LLM falhou", extra={"error": str(exc)})
+            self._log_summary(
+                user,
+                conversation_id,
+                None,
+                error=str(exc),
+                latency_ms=int((time.perf_counter() - started) * 1000),
+            )
+            return None
+        self._log_summary(user, conversation_id, draft)
+        return draft
+
+    def _log_summary(
+        self,
+        user: User,
+        conversation_id: int,
+        draft: TicketDraft | None,
+        *,
+        error: str | None = None,
+        latency_ms: int | None = None,
+    ) -> None:
+        llm = draft.llm if draft else None
+        self.session.add(
+            AIAction(
+                company_id=user.company_id,
+                user_id=user.id,
+                action_type=AIActionType.SUMMARIZE_TICKET,
+                input_reference=f"conversation:{conversation_id}:ticket",
+                output=json.dumps(
+                    {"category": draft.category_name, "priority": draft.priority.value}
+                )
+                if draft
+                else None,
+                model=llm.model if llm else (self.provider.model if self.provider else "heuristic"),
+                success=draft is not None,
+                error_message=error[:500] if error else None,
+                latency_ms=llm.latency_ms if llm else latency_ms,
+                input_tokens=llm.input_tokens if llm else None,
+                output_tokens=llm.output_tokens if llm else None,
+            )
+        )
+        self.session.flush()
 
     def resolve(self, user: User, conversation_id: int) -> Conversation:
         conversation = self.get(user, conversation_id)
@@ -306,6 +414,7 @@ class ChatService:
                         "mode": reply.mode,
                         "sources": [s.article_id for s in reply.sources],
                         "suggest_ticket": reply.suggest_ticket,
+                        "status": reply.status,
                     }
                 )
                 if reply
@@ -321,3 +430,12 @@ class ChatService:
             )
         )
         self.session.flush()
+
+
+def _search_query(text: str, history: list[PastMessage]) -> str:
+    """Busca no RAG pelo problema original + a mensagem atual.
+
+    Em respostas como "não funcionou", a mensagem sozinha não diz qual é o problema.
+    """
+    first = first_problem(history)
+    return f"{first}\n{text}"[:1000] if first else text

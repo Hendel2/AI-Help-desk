@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 
 import { ErrorState } from '@/components/ErrorState'
+import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { SkeletonText } from '@/components/ui/Skeleton'
 import { cx, FIELD_BASE, FOCUS_RING, SECONDARY_ON_TINT } from '@/components/ui/styles'
@@ -11,6 +12,7 @@ import { useToast } from '@/components/ui/useToast'
 import { useAuth } from '@/features/auth/useAuth'
 import { ChatMessage } from '@/features/chat/components/ChatMessage'
 import {
+  useAssistantInfo,
   useConversation,
   useConversationOutcome,
   useConversations,
@@ -42,6 +44,10 @@ export function ChatPage() {
   const conversationId = Number(searchParams.get('conversa')) || null
   const conversations = useConversations()
   const conversation = useConversation(conversationId)
+  // Enquanto não se sabe (carregando/erro), vale o texto padrão: nada de alarme falso.
+  const assistant = useAssistantInfo()
+  const basicMode = assistant.data?.ai_enabled === false
+  const slowAI = assistant.data?.slow_responses === true
   const create = useCreateConversation()
   const send = useSendMessage()
   const outcome = useConversationOutcome(conversationId)
@@ -55,6 +61,9 @@ export function ChatPage() {
   const lastAssistant = [...messages].reverse().find((m) => m.role === 'ASSISTANT')
   const isActive = !conversation.data || conversation.data.status === 'ACTIVE'
   const offerTicket = isActive && lastAssistant?.suggest_ticket === true && pending === null
+  // Depois da primeira resposta, dá para encerrar ou falar com a equipe a qualquer momento.
+  const canFinish =
+    conversationId !== null && isActive && lastAssistant !== undefined && pending === null
 
   // Mantém a última mensagem visível.
   useEffect(() => {
@@ -88,6 +97,15 @@ export function ChatPage() {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault()
       void submit(draft)
+    }
+  }
+
+  const resolve = async () => {
+    try {
+      await outcome.resolve.mutateAsync()
+      showToast('Que bom que resolveu! A conversa foi encerrada.')
+    } catch (error) {
+      showToast(getErrorMessage(error, 'Não foi possível encerrar a conversa.'), 'error')
     }
   }
 
@@ -150,11 +168,39 @@ export function ChatPage() {
         // Altura fixa: só as mensagens rolam, a caixa de digitação fica sempre visível.
         className="flex h-[calc(100dvh-9rem)] min-h-96 flex-col rounded-lg border border-border bg-surface lg:h-[calc(100dvh-11rem)]"
       >
-        <header className="border-b border-border px-4 py-3">
-          <h1 className="text-lg font-semibold text-text">Assistente de TI</h1>
-          <p className="text-xs text-secondary">
-            Respostas baseadas na base de conhecimento da empresa. Nunca informe senhas.
-          </p>
+        <header className="flex flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-lg font-semibold text-text">Assistente de TI</h1>
+              {basicMode ? <Badge tone="warning">Sem IA</Badge> : null}
+            </div>
+            <p className="text-xs text-secondary">
+              {basicMode
+                ? 'Modo básico: eu sugiro procedimentos da base de conhecimento e abro um chamado quando precisar. Nunca informe senhas.'
+                : 'Conte o problema com suas palavras. Se eu não conseguir resolver, abro um chamado para a equipe. Nunca informe senhas.'}
+            </p>
+          </div>
+          {canFinish ? (
+            // Desfechos sempre à mão: a pessoa não depende da IA oferecer o chamado.
+            <div className="flex shrink-0 gap-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                isLoading={outcome.resolve.isPending}
+                onClick={() => void resolve()}
+              >
+                Resolvido
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                isLoading={outcome.escalate.isPending}
+                onClick={() => void escalate()}
+              >
+                Falar com a equipe
+              </Button>
+            </div>
+          ) : null}
         </header>
 
         <div
@@ -219,6 +265,7 @@ export function ChatPage() {
                   />
                   <p className="text-sm text-secondary" aria-busy="true">
                     O assistente está escrevendo…
+                    {slowAI ? ' A IA local pode levar até 1 minuto.' : null}
                   </p>
                 </>
               ) : null}

@@ -34,6 +34,7 @@ from app.schemas.admin import (
     UserUpdate,
 )
 from app.schemas.common import Page, PageParams
+from app.services.ai.provider import FallbackProvider, LLMProvider
 
 _ENTITY_LABELS = {Department: "departamento", Category: "categoria", SLAPolicy: "política de SLA"}
 
@@ -359,15 +360,20 @@ class AdminService:
         )
         return Page.build([AuditLogRead.model_validate(i) for i in items], total, params)
 
-    def ai_settings(self, settings: Settings, model: str | None) -> AISettingsRead:
+    def ai_settings(self, settings: Settings, provider: LLMProvider | None) -> AISettingsRead:
         since = utcnow() - timedelta(days=30)
         total, succeeded = self.repo.ai_usage(self.company_id, since)
         ratings, positive = self.repo.ai_feedback(self.company_id, since)
-        generative = settings.AI_PROVIDER != "none"
+        # O provedor realmente criado (ex.: "gemini" sem chave não conta como ativo).
+        primary, fallback = provider, None
+        if isinstance(provider, FallbackProvider):
+            primary, fallback = provider.primary, provider.fallback
         return AISettingsRead(
-            provider=settings.AI_PROVIDER,
-            model=model if generative else None,
-            generative_enabled=generative,
+            provider=primary.name if primary else "none",
+            model=primary.model if primary else None,
+            fallback_provider=fallback.name if fallback else None,
+            fallback_model=fallback.model if fallback else None,
+            generative_enabled=provider is not None,
             vector_store=settings.VECTOR_STORE_PROVIDER,
             actions_last_30_days=total,
             success_rate=round(succeeded / total, 3) if total else None,

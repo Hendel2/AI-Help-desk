@@ -13,7 +13,12 @@ from sqlalchemy.orm import Session
 from app.api.v1.ai.router import get_ai_provider
 from app.models import AIAction, AIFeedback, AuditLog, Company, Message, Ticket, User
 from app.models.enums import AIActionType, AuditAction, RoleName, TicketSource
-from app.services.ai.provider import AIProviderError, LLMResult
+from app.services.ai.provider import (
+    AIProviderError,
+    FallbackProvider,
+    LLMResult,
+    OllamaProvider,
+)
 
 VPN_ARTICLE = {
     "title": "Falha de autenticação na VPN",
@@ -29,21 +34,23 @@ class FakeProvider:
     name = "fake"
     model = "fake-model"
 
-    def __init__(self, response: str | Exception) -> None:
-        self.response = response
+    def __init__(self, response: str | Exception | list[str]) -> None:
+        self.responses = list(response) if isinstance(response, list) else [response]
         self.calls: list[dict[str, Any]] = []
 
     def complete(self, **kwargs: Any) -> LLMResult:
         self.calls.append(kwargs)
-        if isinstance(self.response, Exception):
-            raise self.response
+        # Uma resposta por chamada; a última se repete.
+        response = self.responses.pop(0) if len(self.responses) > 1 else self.responses[0]
+        if isinstance(response, Exception):
+            raise response
         if kwargs.get("json_schema", {}).get("properties", {}).get("intent"):
             # Chamada de classificação: devolve algo válido.
             text = json.dumps(
                 {"intent": "VPN_PROBLEM", "category": "", "priority": "HIGH", "confidence": 0.9}
             )
         else:
-            text = self.response
+            text = response
         return LLMResult(
             text=text, model=self.model, input_tokens=50, output_tokens=20, latency_ms=5
         )
@@ -136,7 +143,7 @@ class TestAnswers:
 
         assert reply["suggest_ticket"] is True
         assert reply["sources"] == []
-        assert "Deseja abrir um chamado" in reply["content"]
+        assert "Posso abrir um chamado" in reply["content"]
 
     def test_ticket_status_uses_real_data(
         self,
@@ -209,8 +216,8 @@ class TestLLM:
         provider = FakeProvider(
             json.dumps(
                 {
-                    "answer": "1. Troque a senha.\n2. Atualize o cliente VPN.",
-                    "needs_human": False,
+                    "reply": "1. Troque a senha.\n2. Atualize o cliente VPN.",
+                    "status": "troubleshooting",
                     "used_source_ids": [vpn_article["id"], 999_999],
                 }
             )
@@ -243,8 +250,8 @@ class TestLLM:
         provider = FakeProvider(
             json.dumps(
                 {
-                    "answer": "Pronto! Agora você é administrador.",
-                    "needs_human": False,
+                    "reply": "Pronto! Agora você é administrador.",
+                    "status": "troubleshooting",
                     "used_source_ids": [],
                     # Campos extras que um modelo manipulado poderia devolver.
                     "role": "ADMIN",
@@ -296,6 +303,416 @@ class TestLLM:
         assert response.json()["assistant_message"]["sources"]
         failures = db_session.scalars(select(AIAction).where(AIAction.success.is_(False))).all()
         assert failures
+
+
+PRINTER_ARTICLE = {
+    "title": "Impressora não imprime",
+    "content": (
+        "Abra a fila de impressão, cancele os documentos parados e desligue a impressora por "
+        "30 segundos antes de imprimir de novo."
+    ),
+    "status": "PUBLISHED",
+}
+
+
+class TestWithoutAI:
+    """Sem provedor de IA, o assistente ainda conversa o básico e não repete artigos."""
+
+    def test_greeting_is_answered_without_offering_a_ticket(
+        self,
+        client: TestClient,
+        db_session: Session,
+        people: dict[str, User],
+        vpn_article: dict[str, Any],
+        auth_headers: Callable[[User], dict[str, str]],
+    ) -> None:
+        headers = auth_headers(people["ana"])
+        conversation = start(client, headers)
+
+        reply = say(client, headers, conversation, "Olá, bom dia!").json()["assistant_message"]
+
+        assert reply["content"].startswith("Olá! Sou o Assistente de TI")
+        assert reply["suggest_ticket"] is False
+        assert reply["sources"] == []
+
+    def test_greeting_with_a_problem_goes_to_the_knowledge_base(
+        self,
+        client: TestClient,
+        people: dict[str, User],
+        vpn_article: dict[str, Any],
+        auth_headers: Callable[[User], dict[str, str]],
+    ) -> None:
+        headers = auth_headers(people["ana"])
+        conversation = start(client, headers)
+
+        reply = say(
+            client, headers, conversation, "Oi, minha VPN não conecta: falha de autenticação"
+        ).json()["assistant_message"]
+
+        assert [source["title"] for source in reply["sources"]] == [VPN_ARTICLE["title"]]
+
+    @pytest.mark.parametrize("vague", ["Não funciona", "Falha!"])
+    def test_vague_message_asks_for_details(
+        self,
+        client: TestClient,
+        people: dict[str, User],
+        vpn_article: dict[str, Any],
+        auth_headers: Callable[[User], dict[str, str]],
+        vague: str,
+    ) -> None:
+        headers = auth_headers(people["ana"])
+        conversation = start(client, headers)
+        say(client, headers, conversation, "Oi")
+
+        reply = say(client, headers, conversation, vague).json()["assistant_message"]
+
+        # Nenhum problema descrito (só a saudação): pede detalhes em vez de chutar um
+        # artigo — "falha" sozinha casaria com o artigo da VPN.
+        assert reply["content"].startswith("Pode me contar um pouco mais?")
+        assert reply["sources"] == []
+        assert reply["suggest_ticket"] is False
+
+    def test_thanks_after_an_answer_points_to_resolved(
+        self,
+        client: TestClient,
+        people: dict[str, User],
+        vpn_article: dict[str, Any],
+        auth_headers: Callable[[User], dict[str, str]],
+    ) -> None:
+        headers = auth_headers(people["ana"])
+        conversation = start(client, headers)
+        say(client, headers, conversation, "Minha VPN não conecta, falha de autenticação")
+
+        reply = say(client, headers, conversation, "Funcionou, obrigado!").json()[
+            "assistant_message"
+        ]
+
+        assert reply["content"].startswith("Que bom que deu certo!")
+        assert reply["suggest_ticket"] is False
+
+    def test_short_follow_up_does_not_repeat_the_article(
+        self,
+        client: TestClient,
+        people: dict[str, User],
+        vpn_article: dict[str, Any],
+        auth_headers: Callable[[User], dict[str, str]],
+    ) -> None:
+        headers = auth_headers(people["ana"])
+        conversation = start(client, headers)
+        say(client, headers, conversation, "Minha VPN não conecta, falha de autenticação")
+
+        reply = say(client, headers, conversation, "É no notebook").json()["assistant_message"]
+
+        # Mesmo problema: não repete o artigo nem chuta outro.
+        assert reply["content"].startswith("O procedimento que tenho")
+        assert reply["sources"] == []
+        assert reply["suggest_ticket"] is True
+
+    def test_new_question_in_the_same_conversation_finds_another_article(
+        self,
+        client: TestClient,
+        people: dict[str, User],
+        vpn_article: dict[str, Any],
+        auth_headers: Callable[[User], dict[str, str]],
+    ) -> None:
+        admin = auth_headers(people["alice"])
+        assert client.post("/api/v1/knowledge", json=PRINTER_ARTICLE, headers=admin).is_success
+        headers = auth_headers(people["ana"])
+        conversation = start(client, headers)
+        say(client, headers, conversation, "Minha VPN não conecta, falha de autenticação")
+
+        reply = say(
+            client, headers, conversation, "Outra coisa: a impressora não imprime nada"
+        ).json()["assistant_message"]
+
+        assert [source["title"] for source in reply["sources"]] == [PRINTER_ARTICLE["title"]]
+
+
+STEPS_ARTICLE = {
+    "title": "Internet lenta",
+    "content": (
+        "1. Teste em outro site.\n"
+        "2. Reinicie o computador.\n"
+        "3. Feche as abas que usam muita banda.\n\n"
+        "Se continuar lenta, abra um chamado."
+    ),
+    "status": "PUBLISHED",
+}
+
+
+class TestStepByStep:
+    """Sem IA, "não entendi" vira um passo a passo guiado pelo próprio procedimento."""
+
+    @pytest.fixture
+    def conversation(
+        self,
+        client: TestClient,
+        people: dict[str, User],
+        auth_headers: Callable[[User], dict[str, str]],
+    ) -> tuple[dict[str, str], int]:
+        admin = auth_headers(people["alice"])
+        assert client.post("/api/v1/knowledge", json=STEPS_ARTICLE, headers=admin).is_success
+        headers = auth_headers(people["ana"])
+        conversation = start(client, headers)
+        first = say(client, headers, conversation, "Minha internet está lenta").json()
+        assert first["assistant_message"]["sources"][0]["title"] == "Internet lenta"
+        assert 'diga "passo a passo"' in first["assistant_message"]["content"]
+        return headers, conversation
+
+    @staticmethod
+    def ask(client: TestClient, chat: tuple[dict[str, str], int], text: str) -> dict[str, Any]:
+        headers, conversation = chat
+        return say(client, headers, conversation, text).json()["assistant_message"]
+
+    def test_not_understood_walks_through_each_step(
+        self, client: TestClient, conversation: tuple[dict[str, str], int]
+    ) -> None:
+        first = self.ask(client, conversation, "Não entendi, pode explicar melhor?")
+        assert first["content"].startswith("Vamos por partes — “Internet lenta”.")
+        assert "Passo 1 de 3: Teste em outro site." in first["content"]
+        assert first["sources"][0]["title"] == "Internet lenta"
+        assert first["suggest_ticket"] is False
+
+        assert self.ask(client, conversation, "pronto")["content"].startswith(
+            "Passo 2 de 3: Reinicie o computador."
+        )
+        stuck = self.ask(client, conversation, "Não sei fazer isso")
+        # Travou: repete o passo e oferece ajuda da equipe (ou pular).
+        assert stuck["content"].startswith("Passo 2 de 3: Reinicie o computador.")
+        assert stuck["suggest_ticket"] is True
+        assert self.ask(client, conversation, "próximo")["content"].startswith(
+            "Passo 3 de 3: Feche as abas"
+        )
+
+        end = self.ask(client, conversation, "Não funcionou")
+        assert end["content"].startswith("Esses eram todos os passos de “Internet lenta”.")
+        assert end["suggest_ticket"] is True
+
+    def test_solved_in_the_middle_ends_the_steps(
+        self, client: TestClient, conversation: tuple[dict[str, str], int]
+    ) -> None:
+        self.ask(client, conversation, "passo a passo, por favor")
+
+        reply = self.ask(client, conversation, "Funcionou!")
+
+        assert reply["content"].startswith("Que bom que deu certo!")
+        assert reply["suggest_ticket"] is False
+
+    def test_a_new_problem_is_searched_even_with_stuck_words(
+        self,
+        client: TestClient,
+        people: dict[str, User],
+        conversation: tuple[dict[str, str], int],
+        auth_headers: Callable[[User], dict[str, str]],
+    ) -> None:
+        admin = auth_headers(people["alice"])
+        assert client.post("/api/v1/knowledge", json=PRINTER_ARTICLE, headers=admin).is_success
+
+        reply = self.ask(
+            client, conversation, "Não consegui imprimir o relatório, a impressora não imprime"
+        )
+
+        assert [source["title"] for source in reply["sources"]] == [PRINTER_ARTICLE["title"]]
+
+    def test_clarification_before_any_article_is_a_normal_question(
+        self,
+        client: TestClient,
+        people: dict[str, User],
+        vpn_article: dict[str, Any],
+        auth_headers: Callable[[User], dict[str, str]],
+    ) -> None:
+        headers = auth_headers(people["ana"])
+        conversation = start(client, headers)
+
+        reply = say(
+            client,
+            headers,
+            conversation,
+            "Não entendi como resolver a falha de autenticação da VPN",
+        ).json()["assistant_message"]
+
+        assert [source["title"] for source in reply["sources"]] == [VPN_ARTICLE["title"]]
+
+
+class TestAssistantInfo:
+    def test_tells_whether_the_ai_is_on(
+        self,
+        app: FastAPI,
+        client: TestClient,
+        people: dict[str, User],
+        auth_headers: Callable[[User], dict[str, str]],
+    ) -> None:
+        headers = auth_headers(people["ana"])
+
+        def info() -> Any:
+            return client.get("/api/v1/chat/assistant", headers=headers).json()
+
+        assert info() == {"ai_enabled": False, "slow_responses": False}
+        app.dependency_overrides[get_ai_provider] = lambda: FakeProvider("{}")
+        assert info() == {"ai_enabled": True, "slow_responses": False}
+        local = OllamaProvider(base_url="http://ollama:11434", model="qwen3:4b-instruct")
+        app.dependency_overrides[get_ai_provider] = lambda: local
+        assert info() == {"ai_enabled": True, "slow_responses": True}
+        # Nuvem como principal: a IA local só entra se ela falhar.
+        chain = FallbackProvider(FakeProvider("{}"), local)
+        app.dependency_overrides[get_ai_provider] = lambda: chain
+        assert info() == {"ai_enabled": True, "slow_responses": False}
+
+    def test_requires_login(self, client: TestClient) -> None:
+        assert client.get("/api/v1/chat/assistant").status_code == 401
+
+
+def llm_reply(text: str, status: str = "troubleshooting", sources: list[int] | None = None) -> str:
+    return json.dumps({"reply": text, "status": status, "used_source_ids": sources or []})
+
+
+class TestConversation:
+    """Com IA, o chat é uma conversa de suporte: histórico, diagnóstico e escalonamento."""
+
+    def test_follow_up_sends_the_real_history_and_one_call_per_message(
+        self,
+        app: FastAPI,
+        client: TestClient,
+        people: dict[str, User],
+        auth_headers: Callable[[User], dict[str, str]],
+    ) -> None:
+        provider = FakeProvider(
+            [
+                llm_reply("O mouse é com fio ou sem fio? Já testou em outra porta USB?"),
+                llm_reply("Teste com pilhas novas e afaste o receptor de outros aparelhos."),
+            ]
+        )
+        app.dependency_overrides[get_ai_provider] = lambda: provider
+        headers = auth_headers(people["ana"])
+        conversation = start(client, headers)
+
+        first = say(client, headers, conversation, "Mouse com mal contato").json()
+        second = say(client, headers, conversation, "É sem fio, já troquei de porta").json()
+
+        # Uma única chamada de IA por mensagem (a intenção vem da heurística local).
+        assert len(provider.calls) == 2
+        assert first["assistant_message"]["content"].startswith("O mouse é com fio")
+        assert second["assistant_message"]["suggest_ticket"] is False
+        history = provider.calls[1]["history"]
+        assert [(turn.role, turn.text) for turn in history] == [
+            ("user", "Mouse com mal contato"),
+            ("assistant", "O mouse é com fio ou sem fio? Já testou em outra porta USB?"),
+        ]
+        assert "É sem fio, já troquei de porta" in provider.calls[1]["user_content"]
+        # Sem artigo relacionado, a IA resolve sozinha: nem menção à base de conhecimento.
+        assert "base de conhecimento" not in provider.calls[0]["user_content"]
+        assert "base de conhecimento" not in provider.calls[1]["user_content"]
+
+    def test_not_solved_goes_to_the_ai_instead_of_opening_a_ticket(
+        self,
+        app: FastAPI,
+        client: TestClient,
+        people: dict[str, User],
+        auth_headers: Callable[[User], dict[str, str]],
+    ) -> None:
+        provider = FakeProvider(
+            [
+                llm_reply("Reinicie o roteador e me diga se voltou."),
+                llm_reply("Vamos tentar esquecer a rede Wi-Fi e conectar de novo."),
+            ]
+        )
+        app.dependency_overrides[get_ai_provider] = lambda: provider
+        headers = auth_headers(people["ana"])
+        conversation = start(client, headers)
+        say(client, headers, conversation, "A internet está caindo")
+
+        reply = say(client, headers, conversation, "Não resolveu").json()["assistant_message"]
+
+        assert reply["content"] == "Vamos tentar esquecer a rede Wi-Fi e conectar de novo."
+        assert reply["suggest_ticket"] is False
+
+    def test_offers_a_ticket_only_when_the_ai_escalates(
+        self,
+        app: FastAPI,
+        client: TestClient,
+        people: dict[str, User],
+        auth_headers: Callable[[User], dict[str, str]],
+    ) -> None:
+        provider = FakeProvider(
+            llm_reply(
+                "O teclado precisa ser trocado pela equipe. Posso abrir o chamado?",
+                status="escalate",
+            )
+        )
+        app.dependency_overrides[get_ai_provider] = lambda: provider
+        headers = auth_headers(people["ana"])
+        conversation = start(client, headers)
+
+        reply = say(client, headers, conversation, "Derramei café no teclado").json()
+
+        assert reply["assistant_message"]["suggest_ticket"] is True
+
+    def test_escalation_uses_the_ai_summary_for_the_ticket(
+        self,
+        app: FastAPI,
+        client: TestClient,
+        db_session: Session,
+        people: dict[str, User],
+        make_category: Callable[..., Any],
+        company: Company,
+        auth_headers: Callable[[User], dict[str, str]],
+    ) -> None:
+        make_category(company, name="Hardware")
+        db_session.commit()
+        provider = FakeProvider(
+            [
+                llm_reply("Precisa de troca. Posso abrir o chamado?", status="escalate"),
+                json.dumps(
+                    {
+                        "title": "Teclado danificado por líquido",
+                        "description": "Café derramado no teclado; teclas não respondem.",
+                        "category": "Hardware",
+                        "priority": "HIGH",
+                    }
+                ),
+            ]
+        )
+        app.dependency_overrides[get_ai_provider] = lambda: provider
+        headers = auth_headers(people["ana"])
+        conversation = start(client, headers)
+        say(client, headers, conversation, "Derramei café no teclado")
+
+        result = client.post(f"/api/v1/chat/conversations/{conversation}/escalate", headers=headers)
+
+        ticket = db_session.get(Ticket, result.json()["ticket_id"])
+        assert ticket is not None
+        assert ticket.title == "Teclado danificado por líquido"
+        assert ticket.description.startswith("Café derramado no teclado")
+        assert "Usuário: Derramei café no teclado" in ticket.description  # conversa anexada
+        assert ticket.category is not None and ticket.category.name == "Hardware"
+        assert ticket.priority.value == "HIGH"
+        assert ticket.source is TicketSource.CHATBOT
+        summary = db_session.scalars(
+            select(AIAction).where(AIAction.action_type == AIActionType.SUMMARIZE_TICKET)
+        ).one()
+        assert summary.success is True
+
+    def test_escalation_falls_back_when_the_summary_fails(
+        self,
+        app: FastAPI,
+        client: TestClient,
+        db_session: Session,
+        people: dict[str, User],
+        auth_headers: Callable[[User], dict[str, str]],
+    ) -> None:
+        provider = FakeProvider(
+            [llm_reply("Posso abrir o chamado?", status="escalate"), "isto não é json"]
+        )
+        app.dependency_overrides[get_ai_provider] = lambda: provider
+        headers = auth_headers(people["ana"])
+        conversation = start(client, headers)
+        say(client, headers, conversation, "Monitor não liga de jeito nenhum")
+
+        result = client.post(f"/api/v1/chat/conversations/{conversation}/escalate", headers=headers)
+
+        assert result.status_code == 201
+        ticket = db_session.get(Ticket, result.json()["ticket_id"])
+        assert ticket is not None and ticket.title == "Monitor não liga de jeito nenhum"
 
 
 class TestEscalation:

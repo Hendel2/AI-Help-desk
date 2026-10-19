@@ -11,6 +11,7 @@ import { renderWithProviders } from '@/test/utils'
 
 import { AuditPage } from './AuditPage'
 import { CategoriesPage } from './CategoriesPage'
+import { SettingsPage } from './SettingsPage'
 import { SLAPage } from './SLAPage'
 import { UsersPage } from './UsersPage'
 
@@ -217,5 +218,33 @@ describe('AuditPage', () => {
     expect(within(table).getByText('Perfil alterado')).toBeInTheDocument()
     expect(within(table).getByText('Usuário → Técnico')).toBeInTheDocument()
     expect(within(table).getByText('Usuário #30')).toBeInTheDocument()
+  })
+})
+
+describe('SettingsPage', () => {
+  it('mostra o provedor principal e a IA local de reserva', async () => {
+    vi.mocked(adminService.getCompany).mockResolvedValue({
+      id: 1,
+      name: 'Empresa Demo',
+      cnpj: null,
+      email: null,
+      phone: null,
+    })
+    vi.mocked(adminService.getAISettings).mockResolvedValue({
+      provider: 'gemini',
+      model: 'gemini-3.8-flash',
+      fallback_provider: 'ollama',
+      fallback_model: 'qwen3:4b-instruct',
+      generative_enabled: true,
+      vector_store: 'chroma',
+      actions_last_30_days: 12,
+      success_rate: 0.9,
+      positive_feedback_rate: null,
+    })
+    renderAdmin(<SettingsPage />)
+
+    expect(await screen.findByText('Google Gemini')).toBeInTheDocument()
+    expect(screen.getByText('IA local (Ollama) · qwen3:4b-instruct')).toBeInTheDocument()
+    expect(screen.getByText('Ativa')).toBeInTheDocument()
   })
 })

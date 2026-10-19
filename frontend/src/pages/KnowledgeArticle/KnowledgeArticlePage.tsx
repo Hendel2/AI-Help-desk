@@ -114,10 +114,11 @@ export function KnowledgeArticlePage() {
             <time dateTime={data.updated_at}>{formatDateTime(data.updated_at)}</time>
           </span>
         </p>
-        {data.summary ? <p className="text-text">{data.summary}</p> : null}
+        {data.summary ? <p className="max-w-prose text-text">{data.summary}</p> : null}
       </header>
 
-      <div className="space-y-4 border-t border-border pt-6 text-text">
+      {/* Texto corrido com ~65 caracteres por linha: leitura sem cansaço. */}
+      <div className="max-w-prose space-y-4 border-t border-border pt-6 text-text">
         {data.content.split(/\n{2,}/).map((paragraph, index) => (
           <p key={index} className="leading-relaxed break-words whitespace-pre-line">
             {paragraph}

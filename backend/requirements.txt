@@ -22,3 +22,5 @@ pypdf>=6,<7
 python-docx>=1.2,<2
 # RAG: cliente HTTP do ChromaDB (mesma versão da imagem chromadb/chroma do compose).
 chromadb-client==1.5.9
+# Cliente HTTP do provedor Gemini (REST); já vinha como dependência indireta.
+httpx>=0.27,<1

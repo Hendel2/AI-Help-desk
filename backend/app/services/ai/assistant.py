@@ -1,10 +1,14 @@
-"""Assistente de TI — geração de respostas do chatbot (§25–28, §46).
+"""Assistente de TI — conversa do chatbot (§25–28, §46).
 
-A resposta usa SOMENTE a base de conhecimento da empresa (RAG). Com LLM, a
-saída é estruturada e validada: o modelo só pode citar fontes que recebeu.
-Sem LLM (ou se ele falhar), responde com o trecho mais relevante encontrado.
-Em ambos os casos, sem fonte suficiente o assistente é transparente e sugere
-abrir um chamado (§26).
+Com LLM, é uma conversa de suporte de verdade: o modelo recebe o histórico,
+entende o problema, pergunta o que falta, propõe passos e usa a base de
+conhecimento da empresa como reforço quando houver artigo relevante. Ele mesmo
+indica quando a equipe precisa assumir (`escalate`) — só então o chat oferece
+abrir um chamado, que é resumido pela IA. Saídas sempre estruturadas e
+validadas; fontes inventadas são descartadas.
+
+Sem LLM (ou se todos os provedores falharem), quem responde é o assistente
+básico (`basic_assistant.py`), sobre a base de conhecimento.
 """
 
 import json
@@ -14,18 +18,16 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, ValidationError
 
-from app.services.ai.classifier import normalize
-from app.services.ai.prompts import BASE_SYSTEM_PROMPT, wrap_user_text
-from app.services.ai.provider import LLMProvider, LLMResult
+from app.models.enums import TicketPriority
+from app.services.ai.prompts import (
+    BASE_SYSTEM_PROMPT,
+    CHAT_SYSTEM_PROMPT,
+    TICKET_SUMMARY_INSTRUCTIONS,
+    wrap_user_text,
+)
+from app.services.ai.provider import ChatTurn, LLMProvider, LLMResult
 from app.services.ai.rag import RetrievedSource
 
-#: Quantas mensagens anteriores entram no contexto do LLM.
-HISTORY_LIMIT = 8
-
-NO_ANSWER_TEXT = (
-    "Não consegui resolver esse problema com segurança com as informações da nossa base "
-    "de conhecimento.\n\nDeseja abrir um chamado com a nossa equipe?"
-)
 CREDENTIAL_WARNING = (
     "Por segurança, nunca compartilhe senhas, tokens ou códigos de verificação — nem comigo "
     "nem com a equipe de TI. Removi esse dado da conversa."
@@ -36,26 +38,12 @@ _SECRET_PATTERN = re.compile(
     r"(?i)\b(senha|password|pass|token|codigo de verifica[cç][aã]o|código de verificação|pin)"
     r"(\s*(?:é|e|eh|:|=)\s*|\s+)(\S+)"
 )
-_NOT_SOLVED = (
-    "nao resolveu",
-    "nao funcionou",
-    "continua",
-    "ainda nao",
-    "nao deu certo",
-    "mesmo erro",
-    "nao ajudou",
-)
 
 
 def redact_secrets(text: str) -> tuple[str, bool]:
     """Remove credenciais digitadas pelo usuário antes de gravar ou enviar à IA."""
     redacted, count = _SECRET_PATTERN.subn(lambda m: f"{m.group(1)}{m.group(2)}[removido]", text)
     return redacted, count > 0
-
-
-def says_not_solved(text: str) -> bool:
-    normalized = normalize(text)
-    return any(phrase in normalized for phrase in _NOT_SOLVED)
 
 
 @dataclass(frozen=True)
@@ -65,81 +53,82 @@ class AssistantReply:
     suggest_ticket: bool
     mode: Literal["llm", "heuristic"]
     llm: LLMResult | None = None
+    #: Estado da conversa segundo a IA (só no modo LLM).
+    status: str | None = None
 
 
-class _LLMAnswer(BaseModel):
-    answer: str = Field(min_length=1, max_length=6000)
-    needs_human: bool
+ConversationStatus = Literal["troubleshooting", "resolved", "escalate"]
+#: Turnos anteriores enviados ao modelo e tamanho máximo de cada um.
+LLM_HISTORY_LIMIT = 12
+LLM_TURN_CHARS = 2000
+
+
+class _LLMChatReply(BaseModel):
+    reply: str = Field(min_length=1, max_length=6000)
+    status: ConversationStatus
     used_source_ids: list[int]
 
 
-_ANSWER_SCHEMA = {
+_CHAT_SCHEMA = {
     "type": "object",
     "properties": {
-        "answer": {"type": "string"},
-        "needs_human": {"type": "boolean"},
+        "reply": {"type": "string"},
+        "status": {"type": "string", "enum": ["troubleshooting", "resolved", "escalate"]},
         "used_source_ids": {"type": "array", "items": {"type": "integer"}},
     },
-    "required": ["answer", "needs_human", "used_source_ids"],
+    "required": ["reply", "status", "used_source_ids"],
     "additionalProperties": False,
 }
 
-_ANSWER_INSTRUCTIONS = """\
-Responda à última mensagem do usuário usando SOMENTE as fontes da base de conhecimento \
-abaixo. Regras:
-- Se as fontes não forem suficientes, diga isso com clareza, não invente passos e \
-marque needs_human = true.
-- Marque needs_human = true também quando o problema exigir intervenção da equipe.
-- Seja objetivo: passos numerados quando houver procedimento.
-- used_source_ids: os ids das fontes que você realmente usou (pode ser vazio).
-- Não mencione ids na resposta; a interface mostra as fontes.\
-"""
-
 
 def _format_sources(sources: list[RetrievedSource]) -> str:
-    if not sources:
-        return "(nenhuma fonte relevante encontrada)"
     return "\n\n".join(
         f'<fonte id="{source.article_id}" titulo="{source.title}">\n{source.excerpt}\n</fonte>'
         for source in sources
     )
 
 
-def _format_history(history: list[tuple[str, str]]) -> str:
-    lines = [
-        f"{'Usuário' if role == 'USER' else 'Assistente'}: {content}"
-        for role, content in history[-HISTORY_LIMIT:]
+def _history_turns(history: list[tuple[str, str]]) -> list[ChatTurn]:
+    """Mensagens anteriores (USER/ASSISTANT) como turnos do modelo; SYSTEM fica de fora."""
+    turns = [
+        ChatTurn("user" if role == "USER" else "assistant", content[:LLM_TURN_CHARS])
+        for role, content in history
+        if role in ("USER", "ASSISTANT")
     ]
-    return "\n".join(lines) or "(início da conversa)"
+    return turns[-LLM_HISTORY_LIMIT:]
 
 
 class InvalidAnswerError(Exception):
     pass
 
 
-def answer_with_llm(
+def converse_with_llm(
     provider: LLMProvider,
-    question: str,
+    message: str,
     history: list[tuple[str, str]],
     sources: list[RetrievedSource],
 ) -> AssistantReply:
-    content = "\n\n".join(
-        [
-            _ANSWER_INSTRUCTIONS,
-            "Fontes da base de conhecimento:\n" + _format_sources(sources),
-            wrap_user_text("historico", _format_history(history)),
-            wrap_user_text("mensagem_usuario", question),
-        ]
-    )
+    """Próxima resposta da conversa de suporte, com o histórico real de turnos.
+
+    Sem trecho relacionado, o modelo recebe só a mensagem: nada de "nenhum artigo
+    encontrado", que o induziria a falar da base em vez de resolver o problema.
+    """
+    content = wrap_user_text("mensagem_usuario", message)
+    if sources:
+        content += (
+            "\n\nTrechos da base de conhecimento da empresa (use só se se aplicarem ao "
+            "caso):\n" + _format_sources(sources)
+        )
     result = provider.complete(
-        system=BASE_SYSTEM_PROMPT,
+        system=CHAT_SYSTEM_PROMPT,
         user_content=content,
-        max_tokens=2048,
+        history=_history_turns(history),
+        max_tokens=4096,
         effort="medium",
-        json_schema=_ANSWER_SCHEMA,
+        json_schema=_CHAT_SCHEMA,
     )
     try:
-        parsed = _LLMAnswer.model_validate(json.loads(result.text))
+        parsed = _LLMChatReply.model_validate(json.loads(result.text))
     except (json.JSONDecodeError, ValidationError) as exc:
         raise InvalidAnswerError("Resposta do assistente fora do formato.") from exc
 
@@ -147,22 +136,72 @@ def answer_with_llm(
     by_id = {source.article_id: source for source in sources}
     used = [by_id[i] for i in dict.fromkeys(parsed.used_source_ids) if i in by_id]
     return AssistantReply(
-        text=parsed.answer.strip(),
+        text=parsed.reply.strip(),
         sources=used,
-        suggest_ticket=parsed.needs_human or not used,
+        suggest_ticket=parsed.status == "escalate",
         mode="llm",
         llm=result,
+        status=parsed.status,
     )
 
 
-def answer_heuristic(sources: list[RetrievedSource]) -> AssistantReply:
-    if not sources:
-        return AssistantReply(
-            text=NO_ANSWER_TEXT, sources=[], suggest_ticket=True, mode="heuristic"
-        )
-    best = sources[0]
-    text = (
-        f"Encontrei na base de conhecimento um procedimento que pode ajudar — "
-        f"“{best.title}”:\n\n{best.excerpt}\n\nIsso resolveu o seu problema?"
+# --- Resumo da conversa para o chamado ---------------------------------------------
+
+
+@dataclass(frozen=True)
+class TicketDraft:
+    title: str
+    description: str
+    category_name: str | None
+    priority: TicketPriority
+    llm: LLMResult
+
+
+class _LLMTicket(BaseModel):
+    title: str = Field(min_length=5, max_length=200)
+    description: str = Field(min_length=10, max_length=8000)
+    category: str
+    priority: TicketPriority
+
+
+def _ticket_schema() -> dict[str, object]:
+    return {
+        "type": "object",
+        "properties": {
+            "title": {"type": "string"},
+            "description": {"type": "string"},
+            "category": {"type": "string"},
+            "priority": {"type": "string", "enum": [p.value for p in TicketPriority]},
+        },
+        "required": ["title", "description", "category", "priority"],
+        "additionalProperties": False,
+    }
+
+
+def summarize_for_ticket(
+    provider: LLMProvider, transcript: str, categories: list[str]
+) -> TicketDraft:
+    """Título, descrição, categoria e prioridade do chamado a partir da conversa."""
+    instructions = TICKET_SUMMARY_INSTRUCTIONS.format(
+        categories=", ".join(categories) or "(nenhuma cadastrada)"
     )
-    return AssistantReply(text=text, sources=[best], suggest_ticket=False, mode="heuristic")
+    result = provider.complete(
+        system=BASE_SYSTEM_PROMPT,
+        user_content=f"{instructions}\n\n{wrap_user_text('conversa', transcript)}",
+        max_tokens=2048,
+        effort="low",
+        json_schema=_ticket_schema(),
+    )
+    try:
+        parsed = _LLMTicket.model_validate(json.loads(result.text))
+    except (json.JSONDecodeError, ValidationError) as exc:
+        raise InvalidAnswerError("Resumo do chamado fora do formato.") from exc
+    # Categoria inventada é descartada (só vale nome exato da empresa).
+    category = parsed.category.strip()
+    return TicketDraft(
+        title=parsed.title.strip(),
+        description=parsed.description.strip(),
+        category_name=category if category in categories else None,
+        priority=parsed.priority,
+        llm=result,
+    )

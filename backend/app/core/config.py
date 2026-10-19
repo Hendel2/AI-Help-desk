@@ -49,6 +49,11 @@ class Settings(BaseSettings):
     AI_PROVIDER: str = "none"
     AI_API_KEY: SecretStr | None = None
     AI_MODEL: str | None = None
+    # Reserva quando o provedor principal falha ou a cota acaba ("ollama" ou "none").
+    AI_FALLBACK_PROVIDER: str = "none"
+    # IA local (Ollama): URL do servidor e modelo (vazio: padrão do provider.py).
+    OLLAMA_URL: str = "http://localhost:11434"
+    OLLAMA_MODEL: str | None = None
     VECTOR_DB_URL: str = "http://localhost:8001"
     # "chroma" (serviço vector-db) ou "memory" (testes/dev sem Docker; reindexa ao subir).
     VECTOR_STORE_PROVIDER: Literal["chroma", "memory"] = "chroma"
@@ -77,7 +82,7 @@ class Settings(BaseSettings):
     def _normalize_log_level(cls, value: object) -> object:
         return value.strip().upper() if isinstance(value, str) else value
 
-    @field_validator("AI_PROVIDER", mode="before")
+    @field_validator("AI_PROVIDER", "AI_FALLBACK_PROVIDER", mode="before")
     @classmethod
     def _normalize_ai_provider(cls, value: object) -> object:
         return value.strip().lower() if isinstance(value, str) else value
