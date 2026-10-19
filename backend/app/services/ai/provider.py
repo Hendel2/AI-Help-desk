@@ -29,8 +29,10 @@ logger = logging.getLogger("app.ai.provider")
 Effort = Literal["low", "medium", "high"]
 
 DEFAULT_ANTHROPIC_MODEL = "claude-opus-5-5"
-#: Modelo estável com camada gratuita (recomendado pelo Google para projetos novos).
-DEFAULT_GEMINI_MODEL = "gemini-3.8-flash"
+#: Rápido (~1 s por resposta no chat, sem etapa de raciocínio) e bem menos disputado que
+#: o Flash, que chega a ~10 s e recusa com 503 em horários de pico. Para respostas mais
+#: elaboradas: AI_MODEL=gemini-3.8-flash.
+DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite"
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 #: Modelo local leve (2,5 GB), responde direto (sem etapa de raciocínio) e roda no processador.
 DEFAULT_OLLAMA_MODEL = "qwen3:4b-instruct"
@@ -166,6 +168,10 @@ class AnthropicProvider:
 # --- Google Gemini ---------------------------------------------------------------
 
 _GEMINI_REFUSALS = {"SAFETY", "PROHIBITED_CONTENT", "BLOCKLIST", "SPII", "RECITATION"}
+#: Nível de raciocínio do Gemini 3 por esforço. Sem isso, o modelo pensa centenas de
+#: tokens antes de cada resposta (~10 s no chat). "minimal" não é aceito no Flash 3.8;
+#: esforço "high" fica com o padrão do modelo.
+_GEMINI_THINKING: dict[Effort, str] = {"low": "low", "medium": "low"}
 _GEMINI_TYPES = {
     "object": "OBJECT",
     "array": "ARRAY",
@@ -226,6 +232,10 @@ class GeminiProvider:
         history: Sequence[ChatTurn] = (),
     ) -> LLMResult:
         generation: dict[str, Any] = {"maxOutputTokens": max_tokens}
+        level = _GEMINI_THINKING.get(effort)
+        # Gemini 2.x usa outro parâmetro (thinkingBudget): fica com o padrão do modelo.
+        if level and not self.model.startswith("gemini-2"):
+            generation["thinkingConfig"] = {"thinkingLevel": level}
         if json_schema is not None:
             generation["responseMimeType"] = "application/json"
             generation["responseSchema"] = to_gemini_schema(json_schema)

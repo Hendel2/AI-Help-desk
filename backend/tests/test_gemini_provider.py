@@ -98,10 +98,28 @@ def test_request_carries_system_history_and_converted_schema() -> None:
     assert config["responseSchema"]["type"] == "OBJECT"
     assert "additionalProperties" not in config["responseSchema"]
     assert config["maxOutputTokens"] == 1024
+    # Raciocínio curto: o padrão do modelo leva ~10 s por resposta no chat.
+    assert config["thinkingConfig"] == {"thinkingLevel": "low"}
     # Resposta: sem as partes de raciocínio; tokens de saída incluem o raciocínio.
     assert result.text == '{"ok": true}'
     assert (result.input_tokens, result.output_tokens) == (120, 40)
     assert result.model == "gemini-3.8-flash-001"
+
+
+@pytest.mark.parametrize(
+    ("model", "effort"), [("gemini-3.8-flash", "high"), ("gemini-2.5-flash", "medium")]
+)
+def test_thinking_level_is_left_to_the_model_when_not_applicable(model: str, effort: Any) -> None:
+    requests: list[httpx.Request] = []
+
+    def record(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json=gemini_response("ok"))
+
+    provider = GeminiProvider(api_key="k", model=model, transport=httpx.MockTransport(record))
+    provider.complete(system="s", user_content="u", max_tokens=10, effort=effort)
+
+    assert "thinkingConfig" not in json.loads(requests[0].content)["generationConfig"]
 
 
 def test_schema_conversion_keeps_structure() -> None:
