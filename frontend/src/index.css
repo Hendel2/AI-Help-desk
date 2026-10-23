@@ -1,125 +1,159 @@
 @import "tailwindcss";
 
 /*
- * Design system do AI Help Desk — "painel noturno" (2026-10-19).
+ * Design system do AI Help Desk — "Canhoto" (2026-10-23).
  *
- * Azul-marinho profundo com azul vivo para ação, seleção e destaque; verde,
- * âmbar e vermelho carregam estado (prazo, risco, sucesso). Tipografia Plus
- * Jakarta Sans. Os tokens abaixo são a ÚNICA fonte de cor da aplicação: nenhum
- * .tsx usa hex, rgb() ou a paleta crua do Tailwind (ver skill frontend-design).
+ * O produto gira em torno do chamado, e a assinatura visual é o canhoto: o
+ * logo, os indicadores (`stub`) e a moldura em folhas arredondadas sobre um
+ * fundo próprio. Grafite neutro (escuro) e papel quente (claro); o violeta-íris
+ * marca ação, seleção e foco — e não se confunde com as cores de estado
+ * (verde = resolvido, âmbar = prazo, vermelho = SLA vencido).
+ * Tipografia: Plus Jakarta Sans (texto) + Space Grotesk (títulos e números).
  *
+ * Os tokens abaixo são a ÚNICA fonte de cor da aplicação: nenhum .tsx usa hex,
+ * rgb() ou a paleta crua do Tailwind (ver skill frontend-design).
  * Contraste conferido nos dois temas (skill accessibility): texto ≥ 7:1,
- * Secondary ≥ 4.5:1 (inclusive nas duas pontas do degradê do banner), cores de
- * estado ≥ 4.5:1 sobre a superfície e sobre o próprio fundo suave, contorno de
- * campo ≥ 3:1.
+ * Secondary ≥ 4.5:1 em todos os fundos, cores de estado ≥ 4.5:1 sobre a
+ * superfície e o próprio fundo suave, contorno de campo ≥ 3:1.
  */
 
 /* `dark:` segue o tema escolhido (claro/escuro/sistema), não só a preferência do SO. */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 @theme {
-  /* Superfícies: fundo < superfície (painéis) < realce (hover) */
-  --color-background: #f3f6fb;
+  /* Fundo de trás (atrás da sidebar e da folha de conteúdo) */
+  --color-backdrop: #ebeae5;
+  /* Folha de conteúdo */
+  --color-background: #f8f7f4;
+  /* Cartões, tabelas, sidebar */
   --color-surface: #ffffff;
-  /* Menus, popovers e toasts (no escuro ficam um degrau acima da superfície) */
+  /* Menus, popovers, painel do assistente e toasts */
   --color-surface-raised: #ffffff;
-  --color-surface-hover: #edf2f9;
-  /* Poço rebaixado que agrupa blocos (ex.: faixa de indicadores do início) */
-  --color-surface-sunken: #eef3fa;
-  /* Divisórias decorativas */
-  --color-border: #e0e6ef;
+  --color-surface-hover: #f1f0ec;
+  /* Poço rebaixado (trilho de progresso, faixas) */
+  --color-surface-sunken: #f1f0ec;
+  /* Divisórias decorativas e textura de pontos */
+  --color-border: #e3e1db;
   /* Contorno de campos e controles (≥ 3:1, WCAG 1.4.11) */
-  --color-border-strong: #78859c;
+  --color-border-strong: #85827b;
 
   /* Texto */
-  --color-text: #0e1726;
-  --color-secondary: #536079;
+  --color-text: #17161b;
+  --color-secondary: #5c5a65;
 
-  /* Ação primária, link, foco e seleção: azul */
-  --color-primary: #1f5ad9;
-  --color-primary-hover: #1949b5;
-  --color-primary-soft: #e6eefe;
+  /* Ação primária, link, foco e seleção: violeta-íris */
+  --color-primary: #5a43dc;
+  --color-primary-hover: #4934c2;
+  --color-primary-soft: #eeebfd;
   --color-on-primary: #ffffff;
 
   /* Estados (prazo, status, erros) */
   --color-success: #137236;
-  --color-success-soft: #e3f4e9;
+  --color-success-soft: #e4f3e8;
   --color-warning: #a24c06;
-  --color-warning-soft: #fdf0e1;
+  --color-warning-soft: #fcefe0;
   --color-danger: #c02525;
-  --color-danger-soft: #fde8e8;
+  --color-danger-soft: #fce8e8;
   --color-on-danger: #ffffff;
 
-  /* Banner de boas-vindas do início (degradê diagonal) */
-  --color-hero-from: #e4edfd;
-  --color-hero-to: #d3e1fc;
-
   /* Fundo de modal e drawer */
-  --color-overlay: rgb(10 16 29 / 0.5);
+  --color-overlay: rgb(15 14 20 / 0.5);
 
   --font-sans:
     "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
+  /* Títulos, números de indicadores e números de chamado */
+  --font-display: "Space Grotesk Variable", "Plus Jakarta Sans Variable", ui-sans-serif, sans-serif;
 
   /* Micro-rótulos (contadores, legendas de gráfico) */
   --text-2xs: 0.6875rem;
   --text-2xs--line-height: 1rem;
 
   /* Elevação: cartões quase planos; sombra marcada só em overlays */
-  --shadow-card: 0 1px 2px rgb(14 23 38 / 0.04), 0 1px 1px rgb(14 23 38 / 0.03);
+  --shadow-card: 0 1px 2px rgb(23 22 27 / 0.05), 0 1px 1px rgb(23 22 27 / 0.03);
   --shadow-overlay:
-    0 1px 2px rgb(14 23 38 / 0.06), 0 16px 40px -12px rgb(14 23 38 / 0.24);
+    0 1px 2px rgb(23 22 27 / 0.06), 0 18px 44px -14px rgb(23 22 27 / 0.28);
 }
 
 /*
- * Tema escuro projetado (não invertido): marinho profundo, superfícies que sobem
- * de luminosidade com a elevação e azul mais claro para manter o contraste.
- * Vale no <html> (tema da aplicação) e em qualquer bloco com data-theme="dark"
- * (ex.: o painel do login, que é sempre escuro).
+ * Tema escuro projetado (não invertido): grafite neutro, superfícies que sobem
+ * de luminosidade com a elevação e íris mais claro para manter o contraste.
+ * Vale no <html> e em qualquer bloco com data-theme="dark" (ex.: painel do login).
  */
 [data-theme="dark"] {
   color-scheme: dark;
 
-  --color-background: #0a101d;
-  --color-surface: #101a2c;
-  --color-surface-raised: #15213a;
-  --color-surface-hover: #18253f;
-  --color-surface-sunken: #0c1424;
-  --color-border: #1e2b44;
-  --color-border-strong: #566785;
+  --color-backdrop: #08080b;
+  --color-background: #0f0f13;
+  --color-surface: #16161c;
+  --color-surface-raised: #1c1c24;
+  --color-surface-hover: #22222b;
+  --color-surface-sunken: #121217;
+  --color-border: #2a2a34;
+  --color-border-strong: #6e6c7d;
 
-  --color-text: #e7ecf6;
-  --color-secondary: #9caac4;
+  --color-text: #edecf2;
+  --color-secondary: #a4a2b3;
 
-  --color-primary: #6fa1ff;
-  --color-primary-hover: #8fb6ff;
-  --color-primary-soft: #16284a;
-  --color-on-primary: #06132b;
+  --color-primary: #a493ff;
+  --color-primary-hover: #baadff;
+  --color-primary-soft: #262145;
+  --color-on-primary: #140e33;
 
   --color-success: #4fd17f;
-  --color-success-soft: #0f2a1c;
+  --color-success-soft: #10291b;
   --color-warning: #f5b544;
-  --color-warning-soft: #2e2311;
+  --color-warning-soft: #2d2310;
   --color-danger: #ff7b7b;
-  --color-danger-soft: #341618;
+  --color-danger-soft: #341819;
   --color-on-danger: #2b0a0a;
 
-  --color-hero-from: #122245;
-  --color-hero-to: #1a3672;
+  --color-overlay: rgb(0 0 0 / 0.65);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-overlay: 0 1px 2px rgb(0 0 0 / 0.45), 0 20px 48px -14px rgb(0 0 0 / 0.8);
+}
 
-  --color-overlay: rgb(2 6 14 / 0.65);
-  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3);
-  --shadow-overlay: 0 1px 2px rgb(0 0 0 / 0.4), 0 18px 44px -12px rgb(0 0 0 / 0.75);
+/* Textura de pontos (cabeçalhos com assinatura: início, painel do assistente, login). */
+@utility bg-dots {
+  background-image: radial-gradient(var(--color-border) 1px, transparent 1.5px);
+  background-size: 1rem 1rem;
+}
+
+/* Some da direita para a esquerda (pontilhado longe do texto). Máscara: só alfa. */
+@utility fade-to-left {
+  mask-image: linear-gradient(to left, #000, transparent 75%);
 }
 
 /*
- * Escala tipográfica (Plus Jakarta Sans; nada de tamanho inventado por tela):
- *   título de página   text-xl/2xl font-bold tracking-tight    (PageHeader)
- *   título de seção    text-base font-bold                      (Card, SectionTitle)
+ * Canhoto: recortes semicirculares no topo e na base, alinhados à linha
+ * picotada (`--stub-at`, distância da borda esquerda). A máscara só usa alfa
+ * (o preto abaixo é "visível", não uma cor da interface).
+ */
+@utility stub {
+  --stub-notch: 0.5rem;
+  --stub-at: 4.25rem;
+  mask:
+    radial-gradient(
+        circle at var(--stub-at) 0,
+        transparent var(--stub-notch),
+        #000 calc(var(--stub-notch) + 0.5px)
+      )
+      top / 100% 51% no-repeat,
+    radial-gradient(
+        circle at var(--stub-at) 100%,
+        transparent var(--stub-notch),
+        #000 calc(var(--stub-notch) + 0.5px)
+      )
+      bottom / 100% 51% no-repeat;
+}
+
+/*
+ * Escala tipográfica (nada de tamanho inventado por tela):
+ *   título de página   font-display text-2xl/3xl font-semibold tracking-tight (PageHeader)
+ *   título de seção    font-display text-lg font-semibold                    (Card, SectionHeading)
  *   corpo              text-sm
- *   legenda/metadado   text-xs  text-secondary
- *   rótulo de grupo    text-2xs font-semibold uppercase tracking-wider (só na sidebar)
- *   números            tabular-nums (métricas, prazos, contagens)
+ *   legenda/metadado   text-xs text-secondary
+ *   números            font-display tabular-nums (indicadores, prazos, HD-000123)
  */
 @layer base {
   html {
@@ -131,7 +165,7 @@
 
   body {
     font-family: var(--font-sans);
-    background-color: var(--color-background);
+    background-color: var(--color-backdrop);
     color: var(--color-text);
     scrollbar-color: var(--color-border-strong) transparent;
   }

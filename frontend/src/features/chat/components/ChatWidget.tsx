@@ -1,102 +1,115 @@
 import {
+  AlertTriangle,
   ArrowLeft,
+  ArrowUp,
+  CheckCircle2,
+  ChevronDown,
   ChevronRight,
-  House,
+  History,
+  KeyRound,
+  Laptop,
+  Mail,
   Maximize2,
-  MessageSquarePlus,
-  MessagesSquare,
-  SendHorizontal,
+  MessageSquare,
+  Printer,
+  ShieldCheck,
+  SquarePen,
+  Ticket,
+  Wifi,
   X,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
-import { useLocation, useNavigate } from 'react-router'
+import type { KeyboardEvent, ReactNode } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router'
 
 import { AssistantAvatar } from '@/components/AssistantAvatar'
 import { EmptyState } from '@/components/EmptyState'
 import { ErrorState } from '@/components/ErrorState'
 import { SkeletonText } from '@/components/ui/Skeleton'
-import { cx, FOCUS_RING, SECONDARY_ON_TINT } from '@/components/ui/styles'
+import { cx, FIELD_BASE, FOCUS_RING, SECONDARY_ON_TINT } from '@/components/ui/styles'
 import { useAuth } from '@/features/auth/useAuth'
+import { useDashboardMetrics } from '@/features/dashboard/hooks/useDashboard'
 import { formatRelative } from '@/utils/format'
+import { greeting } from '@/utils/greeting'
 
-import { useAssistantInfo, useConversations } from '../hooks/useChat'
+import { useConversations } from '../hooks/useChat'
+import { useAssistantState } from '../hooks/useAssistantState'
 import { useChatSession } from '../hooks/useChatSession'
 import { CONVERSATION_STATUS_LABELS } from '../labels'
-import { ChatComposer, ChatLog, FinishActions, TicketOffer } from './ChatSessionParts'
-
-type View = 'home' | 'messages' | 'chat'
+import type { ConversationStatus, ConversationSummary } from '../types'
+import { useAssistantWidget } from '../widget/assistantWidgetContext'
+import { ChatComposer, ChatLog, QuickReplies, TicketOffer } from './ChatSessionParts'
 
 const INPUT_ID = 'mensagem-assistente-flutuante'
+const HOME_INPUT_ID = 'problema-assistente-flutuante'
 
-/** Como o assistente responde agora, em uma linha (com a cor do ponto). */
-function useAssistantState(): { text: string; dot: string } | null {
-  const info = useAssistantInfo()
-  if (!info.data) return null
-  if (!info.data.ai_enabled) return { text: 'Sem IA: sugiro os guias da base', dot: 'bg-secondary' }
-  if (info.data.slow_responses)
-    return { text: 'IA local: respostas mais lentas', dot: 'bg-warning' }
-  return { text: 'IA ativa: respostas em segundos', dot: 'bg-success' }
+/** Assuntos comuns: um toque começa a conversa com a frase pronta. */
+const TOPICS: Array<{ label: string; icon: LucideIcon; message: string }> = [
+  { label: 'Internet', icon: Wifi, message: 'Minha internet está com problema.' },
+  { label: 'VPN', icon: ShieldCheck, message: 'Minha VPN não conecta.' },
+  { label: 'E-mail', icon: Mail, message: 'Estou com problema no e-mail.' },
+  { label: 'Impressora', icon: Printer, message: 'A impressora não está imprimindo.' },
+  { label: 'Senha', icon: KeyRound, message: 'Preciso de ajuda com a minha senha.' },
+  { label: 'Computador', icon: Laptop, message: 'Meu computador está com problema.' },
+]
+
+const STATUS_ICONS: Record<ConversationStatus, LucideIcon> = {
+  ACTIVE: MessageSquare,
+  RESOLVED: CheckCircle2,
+  ESCALATED: Ticket,
+  CLOSED: MessageSquare,
 }
 
 /**
- * Assistente de TI flutuante: a bolinha no canto abre um painel com início,
- * conversas e a conversa em si, sem sair da tela atual (§45). Na página
- * `/assistente` (a versão expandida) ele não aparece.
+ * Assistente de TI flutuante: o botão no canto abre um painel com a tela
+ * inicial (descreva o problema, assuntos comuns, conversas em andamento e
+ * avisos dos seus chamados), o histórico e a conversa — sem sair da tela atual.
+ * Na página `/assistente` (a versão expandida) ele não aparece.
  */
 export function ChatWidget() {
+  const widget = useAssistantWidget()
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const [isOpen, setIsOpen] = useState(false)
-  const [view, setView] = useState<View>('home')
-  const [conversationId, setConversationId] = useState<number | null>(null)
-  // Remonta a conversa só quando a pessoa escolhe outra (criar a conversa na 1ª mensagem
-  // não pode descartar a mensagem pendente).
-  const [sessionKey, setSessionKey] = useState(0)
+  const state = useAssistantState()
   const panelId = useId()
   const launcherRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
+  const { isOpen, view, close } = widget
 
-  // Ao abrir ou trocar de tela, o foco vai para o painel (a conversa foca a caixa de texto).
+  // Ao abrir ou trocar de tela, o foco vai para o campo principal (ou para o painel).
   useEffect(() => {
     if (!isOpen) return
-    const input = view === 'chat' ? document.getElementById(INPUT_ID) : null
-    ;(input ?? panelRef.current)?.focus()
-  }, [isOpen, view, conversationId])
+    const target = document.getElementById(view === 'chat' ? INPUT_ID : HOME_INPUT_ID)
+    ;(target ?? panelRef.current)?.focus()
+  }, [isOpen, view, widget.sessionKey])
 
-  // Esc dentro do painel fecha e devolve o foco à bolinha (outros overlays não são afetados).
+  // Esc dentro do painel fecha e devolve o foco ao botão (outros overlays não são afetados).
   useEffect(() => {
     const panel = panelRef.current
     if (!isOpen || !panel) return
-    const onKeyDown = (event: KeyboardEvent) => {
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key !== 'Escape') return
       event.stopPropagation()
-      setIsOpen(false)
+      close()
       launcherRef.current?.focus()
     }
     panel.addEventListener('keydown', onKeyDown)
     return () => panel.removeEventListener('keydown', onKeyDown)
-  }, [isOpen])
+  }, [isOpen, close])
 
   if (pathname.startsWith('/assistente')) return null
 
-  const close = () => {
-    setIsOpen(false)
+  const closeAndFocus = () => {
+    close()
     launcherRef.current?.focus()
   }
-  const openConversation = (id: number | null) => {
-    setConversationId(id)
-    setSessionKey((key) => key + 1)
-    setView('chat')
-  }
   const expand = () => {
-    setIsOpen(false)
-    void navigate(
-      conversationId && view === 'chat' ? `/assistente?conversa=${conversationId}` : '/assistente',
-    )
+    close()
+    const id = view === 'chat' ? widget.conversationId : null
+    void navigate(id ? `/assistente?conversa=${id}` : '/assistente')
   }
-  const headerActions = { onExpand: expand, onClose: close }
+  const frame = { onExpand: expand, onClose: closeAndFocus }
 
   return (
     <aside aria-label="Assistente de TI">
@@ -107,42 +120,14 @@ export function ChatWidget() {
           role="dialog"
           aria-label="Assistente de TI"
           tabIndex={-1}
-          className="fixed inset-0 z-40 flex flex-col overflow-hidden bg-surface-raised transition duration-200 ease-out focus:outline-none motion-reduce:transition-none starting:translate-y-3 starting:opacity-0 sm:inset-auto sm:right-6 sm:bottom-26 sm:h-[min(40rem,calc(100dvh-8.5rem))] sm:w-96 sm:rounded-2xl sm:border sm:border-border sm:shadow-overlay"
+          className="fixed inset-0 z-40 flex origin-bottom-right flex-col overflow-hidden bg-surface-raised transition duration-150 ease-out focus:outline-none motion-reduce:transition-none starting:scale-95 starting:opacity-0 sm:inset-auto sm:right-6 sm:bottom-24 sm:h-[min(42rem,calc(100dvh-8rem))] sm:w-100 sm:rounded-3xl sm:border sm:border-border sm:shadow-overlay"
         >
           {view === 'chat' ? (
-            <ConversationView
-              key={sessionKey}
-              conversationId={conversationId}
-              onCreated={setConversationId}
-              onBack={() => setView('home')}
-              onEscalated={() => setIsOpen(false)}
-              {...headerActions}
-            />
+            <ConversationView key={widget.sessionKey} {...frame} />
+          ) : view === 'history' ? (
+            <HistoryView {...frame} />
           ) : (
-            <>
-              {view === 'home' ? (
-                <HomeView onOpenConversation={openConversation} {...headerActions} />
-              ) : (
-                <MessagesView onOpenConversation={openConversation} {...headerActions} />
-              )}
-              <nav
-                aria-label="Seções do assistente"
-                className="grid grid-cols-2 border-t border-border"
-              >
-                <TabButton
-                  icon={House}
-                  label="Início"
-                  isActive={view === 'home'}
-                  onClick={() => setView('home')}
-                />
-                <TabButton
-                  icon={MessagesSquare}
-                  label="Mensagens"
-                  isActive={view === 'messages'}
-                  onClick={() => setView('messages')}
-                />
-              </nav>
-            </>
+            <HomeView {...frame} onNavigate={close} />
           )}
         </div>
       ) : null}
@@ -152,172 +137,367 @@ export function ChatWidget() {
         type="button"
         aria-expanded={isOpen}
         aria-controls={isOpen ? panelId : undefined}
-        aria-label={isOpen ? 'Fechar o Assistente de TI' : 'Abrir o Assistente de TI'}
-        title="Assistente de TI"
-        onClick={() => (isOpen ? close() : setIsOpen(true))}
+        aria-label={isOpen ? 'Minimizar o Assistente de TI' : 'Abrir o Assistente de TI'}
+        onClick={() => (isOpen ? closeAndFocus() : widget.open())}
         className={cx(
-          'fixed right-4 bottom-4 z-40 size-16 rounded-full shadow-overlay ring-4 ring-surface transition-transform hover:scale-105 motion-reduce:transition-none sm:right-6 sm:bottom-6',
+          'group fixed right-4 bottom-4 z-40 rounded-2xl sm:right-6 sm:bottom-6',
           // No celular o painel ocupa a tela e tem o próprio botão de fechar.
           isOpen && 'max-sm:hidden',
           FOCUS_RING,
         )}
       >
-        <AssistantAvatar className="size-full" />
+        {/* Dica no hover, fora da área clicável (não captura cliques sem estar visível). */}
+        {!isOpen ? (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute top-1/2 right-full mr-3 hidden -translate-y-1/2 translate-x-1 rounded-xl border border-border bg-surface-raised px-3 py-2 text-sm font-semibold whitespace-nowrap text-text opacity-0 shadow-overlay transition duration-150 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100 motion-reduce:transition-none sm:block"
+          >
+            Precisa de ajuda?
+          </span>
+        ) : null}
+        <span className="relative flex size-14 items-center justify-center rounded-2xl bg-primary shadow-overlay ring-4 ring-backdrop transition-transform duration-150 group-hover:-translate-y-0.5 motion-reduce:transition-none">
+          {isOpen ? (
+            <ChevronDown aria-hidden="true" className="size-6 text-on-primary" />
+          ) : (
+            <AssistantAvatar framed={false} className="size-11" />
+          )}
+          {state && !isOpen ? (
+            <span
+              aria-hidden="true"
+              className={cx(
+                'absolute -top-1 -right-1 size-3.5 rounded-full ring-2 ring-backdrop',
+                state.dot,
+              )}
+            />
+          ) : null}
+        </span>
       </button>
     </aside>
   )
 }
 
-interface HeaderActionsProps {
+interface FrameProps {
   onExpand: () => void
   onClose: () => void
 }
 
-/** Expandir para a página completa e fechar (no cabeçalho de todas as telas). */
-function HeaderButtons({
-  onExpand,
-  onClose,
-  onPrimary = false,
-}: HeaderActionsProps & { onPrimary?: boolean }) {
-  const button = cx(
-    'rounded-lg p-2 transition-colors',
-    onPrimary
-      ? 'text-on-primary hover:bg-on-primary/15'
-      : 'text-secondary hover:bg-surface-hover hover:text-text',
-    FOCUS_RING,
-  )
-  return (
-    <div className="flex shrink-0 items-center">
-      <button
-        type="button"
-        onClick={onExpand}
-        aria-label="Abrir em tela cheia"
-        title="Abrir em tela cheia"
-        className={button}
-      >
-        <Maximize2 aria-hidden="true" className="size-4.5" />
-      </button>
-      <button type="button" onClick={onClose} aria-label="Fechar" title="Fechar" className={button}>
-        <X aria-hidden="true" className="size-5" />
-      </button>
-    </div>
-  )
-}
-
-function HomeView({
-  onOpenConversation,
-  ...headerActions
-}: HeaderActionsProps & { onOpenConversation: (id: number | null) => void }) {
-  const { user } = useAuth()
-  const conversations = useConversations(true)
-  const state = useAssistantState()
-  const firstName = user?.name.split(' ')[0] ?? ''
-  const recent = conversations.data?.[0]
-
-  return (
-    <div className="flex-1 overflow-y-auto">
-      <div className="bg-primary px-5 pt-4 pb-10 text-on-primary">
-        <div className="flex items-center justify-between gap-2">
-          <span className="flex items-center gap-2.5">
-            <AssistantAvatar className="size-9 rounded-full ring-2 ring-on-primary/30" />
-            <span className="text-sm font-bold">Assistente de TI</span>
-          </span>
-          <HeaderButtons {...headerActions} onPrimary />
-        </div>
-        <h2 className="mt-6 text-2xl font-bold tracking-tight">
-          Olá, {firstName} <span aria-hidden="true">👋</span>
-        </h2>
-        <p className="text-xl font-bold tracking-tight">Como podemos ajudar?</p>
-      </div>
-
-      <div className="-mt-6 space-y-3 px-4 pb-4">
-        {conversations.isPending ? (
-          <div className="rounded-xl border border-border bg-surface p-4 shadow-card">
-            <SkeletonText lines={2} />
-          </div>
-        ) : recent ? (
-          <button
-            type="button"
-            onClick={() => onOpenConversation(recent.id)}
-            // Nome explícito: os três textos visuais viram uma frase para leitores de tela.
-            aria-label={`Mensagem recente: ${recent.title ?? 'Nova conversa'}, ${formatRelative(recent.updated_at)}`}
-            className={cx(
-              'group block w-full rounded-xl border border-border bg-surface p-4 text-left shadow-card transition-colors hover:bg-surface-hover',
-              FOCUS_RING,
-            )}
-          >
-            <span className="block text-sm font-bold text-text">Mensagem recente</span>
-            <span className="mt-1 flex items-center gap-3">
-              <span className={cx('min-w-0 flex-1 truncate text-sm', SECONDARY_ON_TINT)}>
-                {recent.title ?? 'Nova conversa'}
-              </span>
-              <span className={cx('shrink-0 text-xs', SECONDARY_ON_TINT)}>
-                {formatRelative(recent.updated_at)}
-              </span>
-            </span>
-          </button>
-        ) : null}
-
-        {recent?.status === 'ACTIVE' ? (
-          <HomeAction
-            label="Continuar conversando"
-            icon={SendHorizontal}
-            onClick={() => onOpenConversation(recent.id)}
-          />
-        ) : null}
-        <HomeAction
-          label="Iniciar nova conversa"
-          icon={MessageSquarePlus}
-          onClick={() => onOpenConversation(null)}
-        />
-
-        {state ? (
-          <p className="flex items-center justify-center gap-2 pt-2 text-xs text-secondary">
-            <span aria-hidden="true" className={cx('size-2 rounded-full', state.dot)} />
-            {state.text}
-          </p>
-        ) : null}
-      </div>
-    </div>
-  )
-}
-
-function HomeAction({
+function IconButton({
   label,
-  icon: Icon,
   onClick,
+  children,
 }: {
   label: string
-  icon: LucideIcon
   onClick: () => void
+  children: ReactNode
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      aria-label={label}
+      title={label}
       className={cx(
-        'flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface px-4 text-sm font-bold text-text shadow-card transition-colors hover:bg-surface-hover',
+        'rounded-lg p-2 text-secondary transition-colors hover:bg-surface-hover hover:text-text',
         FOCUS_RING,
       )}
     >
-      {label}
-      <Icon aria-hidden="true" className="size-4 text-primary" />
+      {children}
     </button>
   )
 }
 
-function MessagesView({
-  onOpenConversation,
-  ...headerActions
-}: HeaderActionsProps & { onOpenConversation: (id: number | null) => void }) {
+/** Cabeçalho compacto de todas as telas: o que é, como está e as ações da janela. */
+function PanelHeader({
+  leading,
+  title,
+  subtitle,
+  extra,
+  onExpand,
+  onClose,
+}: FrameProps & { leading: ReactNode; title: string; subtitle?: ReactNode; extra?: ReactNode }) {
+  return (
+    <div className="flex items-center gap-2.5 border-b border-border px-3 py-2.5">
+      {leading}
+      <div className="min-w-0 flex-1">
+        <h2 className="truncate font-display text-sm font-semibold text-text">{title}</h2>
+        {subtitle ? (
+          <p className="flex items-center gap-1.5 truncate text-xs text-secondary">{subtitle}</p>
+        ) : null}
+      </div>
+      <div className="flex shrink-0 items-center">
+        {extra}
+        <IconButton label="Abrir em tela cheia" onClick={onExpand}>
+          <Maximize2 aria-hidden="true" className="size-4.5" />
+        </IconButton>
+        <IconButton label="Fechar" onClick={onClose}>
+          <X aria-hidden="true" className="size-5" />
+        </IconButton>
+      </div>
+    </div>
+  )
+}
+
+function StatusLine() {
+  const state = useAssistantState()
+  if (!state) return null
+  return (
+    <>
+      <span aria-hidden="true" className={cx('size-2 shrink-0 rounded-full', state.dot)} />
+      {state.detail}
+    </>
+  )
+}
+
+function HomeView({ onNavigate, ...frame }: FrameProps & { onNavigate: () => void }) {
+  const widget = useAssistantWidget()
+  const { user } = useAuth()
+  const conversations = useConversations(true)
+  const [draft, setDraft] = useState('')
+  const firstName = user?.name.split(' ')[0] ?? ''
+  const ongoing = (conversations.data ?? []).filter((item) => item.status === 'ACTIVE').slice(0, 3)
+
+  const ask = () => {
+    if (draft.trim()) widget.startConversation(draft)
+  }
+  const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault()
+      ask()
+    }
+  }
+
+  return (
+    <>
+      <PanelHeader
+        leading={<AssistantAvatar className="size-9" />}
+        title="Assistente de TI"
+        subtitle={<StatusLine />}
+        extra={
+          <IconButton label="Conversas anteriores" onClick={widget.showHistory}>
+            <History aria-hidden="true" className="size-4.5" />
+          </IconButton>
+        }
+        {...frame}
+      />
+      <div className="flex-1 overflow-y-auto">
+        <form
+          className="space-y-3 border-b border-border bg-background bg-dots px-5 pt-5 pb-4"
+          onSubmit={(event) => {
+            event.preventDefault()
+            ask()
+          }}
+        >
+          <div>
+            <p className="text-sm text-secondary">
+              {greeting(new Date())}, {firstName}.
+            </p>
+            {/* A pergunta é o rótulo visível do campo. */}
+            <label
+              htmlFor={HOME_INPUT_ID}
+              className="mt-0.5 block font-display text-xl font-semibold tracking-tight text-text"
+            >
+              Qual é o problema hoje?
+            </label>
+          </div>
+          <div className="relative">
+            <textarea
+              id={HOME_INPUT_ID}
+              rows={2}
+              value={draft}
+              maxLength={4000}
+              placeholder="Descreva com suas palavras. Ex.: a VPN não conecta"
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={onKeyDown}
+              className={cx(FIELD_BASE, 'min-h-20 resize-none rounded-xl pr-14')}
+            />
+            <button
+              type="submit"
+              aria-label="Começar a conversa"
+              disabled={!draft.trim()}
+              className={cx(
+                'absolute right-2 bottom-2 rounded-lg bg-primary p-2 text-on-primary transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50',
+                FOCUS_RING,
+              )}
+            >
+              <ArrowUp aria-hidden="true" className="size-4" />
+            </button>
+          </div>
+          <p className="text-xs text-secondary">Enter envia. Nunca informe senhas.</p>
+        </form>
+
+        <div className="space-y-6 p-4">
+          <section aria-labelledby={`${HOME_INPUT_ID}-assuntos`}>
+            <h3 id={`${HOME_INPUT_ID}-assuntos`} className="text-xs font-semibold text-secondary">
+              Assuntos comuns
+            </h3>
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              {TOPICS.map(({ label, icon: Icon, message }) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => widget.startConversation(message)}
+                  className={cx(
+                    'flex min-h-20 flex-col items-center justify-center gap-2 rounded-xl border border-border bg-surface px-2 py-3 text-xs font-semibold text-text shadow-card transition-colors hover:border-border-strong hover:bg-surface-hover',
+                    FOCUS_RING,
+                  )}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="flex size-8 items-center justify-center rounded-lg bg-primary-soft text-primary"
+                  >
+                    <Icon className="size-4" />
+                  </span>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {conversations.isPending ? (
+            <SkeletonText lines={3} />
+          ) : ongoing.length > 0 ? (
+            <section aria-labelledby={`${HOME_INPUT_ID}-andamento`}>
+              <div className="flex items-center justify-between gap-2">
+                <h3
+                  id={`${HOME_INPUT_ID}-andamento`}
+                  className="text-xs font-semibold text-secondary"
+                >
+                  Continue de onde parou
+                </h3>
+                <button
+                  type="button"
+                  onClick={widget.showHistory}
+                  className={cx(
+                    'rounded-md text-xs font-semibold text-primary hover:underline',
+                    FOCUS_RING,
+                  )}
+                >
+                  Ver todas
+                </button>
+              </div>
+              <ConversationList items={ongoing} className="mt-2" />
+            </section>
+          ) : null}
+
+          <TicketHint onNavigate={onNavigate} />
+        </div>
+      </div>
+    </>
+  )
+}
+
+/** Lista de conversas (andamento e histórico): um toque abre no painel. */
+function ConversationList({
+  items,
+  className,
+}: {
+  items: ConversationSummary[]
+  className?: string
+}) {
+  const widget = useAssistantWidget()
+  return (
+    <ul
+      className={cx(
+        'divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface',
+        className,
+      )}
+    >
+      {items.map((item) => {
+        const Icon = STATUS_ICONS[item.status]
+        const title = item.title ?? 'Nova conversa'
+        const status = `${CONVERSATION_STATUS_LABELS[item.status]}, ${formatRelative(item.updated_at)}`
+        return (
+          <li key={item.id}>
+            <button
+              type="button"
+              onClick={() => widget.openConversation(item.id)}
+              // Nome explícito: título e situação viram uma frase para leitores de tela.
+              aria-label={`${title}: ${status}`}
+              className="group flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-surface-hover focus-visible:bg-surface-hover focus-visible:outline-none"
+            >
+              <Icon aria-hidden="true" className="size-4 shrink-0 text-primary" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium text-text">{title}</span>
+                <span className={cx('block text-xs', SECONDARY_ON_TINT)}>{status}</span>
+              </span>
+              <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-secondary" />
+            </button>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+function plural(count: number, singular: string, pluralForm: string): string {
+  return `${count} ${count === 1 ? singular : pluralForm}`
+}
+
+/** O assistente conhece seus chamados: avisa o que pede atenção (e leva até lá). */
+function TicketHint({ onNavigate }: { onNavigate: () => void }) {
+  const { user } = useAuth()
+  const metrics = useDashboardMetrics(30)
+  const data = metrics.data
+  if (!user || !data) return null
+
+  const hint =
+    user.role === 'USER'
+      ? data.waiting_user > 0
+        ? {
+            text: `${plural(data.waiting_user, 'chamado aguarda', 'chamados aguardam')} sua resposta`,
+            to: '/chamados/meus?status=WAITING_USER',
+            tone: 'bg-warning-soft text-warning',
+          }
+        : null
+      : data.sla_breached > 0
+        ? {
+            text: `${plural(data.sla_breached, 'chamado', 'chamados')} com SLA vencido`,
+            to: '/chamados',
+            tone: 'bg-danger-soft text-danger',
+          }
+        : null
+  if (!hint) return null
+
+  return (
+    <Link
+      to={hint.to}
+      onClick={onNavigate}
+      className={cx(
+        'group flex items-center gap-3 rounded-xl border border-border bg-surface p-2 pr-3 text-sm font-semibold text-text transition-colors hover:border-border-strong',
+        FOCUS_RING,
+      )}
+    >
+      <span
+        aria-hidden="true"
+        className={cx('flex size-8 shrink-0 items-center justify-center rounded-lg', hint.tone)}
+      >
+        <AlertTriangle className="size-4" />
+      </span>
+      <span className="min-w-0 flex-1">{hint.text}</span>
+      <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-secondary" />
+    </Link>
+  )
+}
+
+function HistoryView(frame: FrameProps) {
+  const widget = useAssistantWidget()
   const conversations = useConversations(true)
 
   return (
     <>
-      <PanelHeader title="Mensagens" {...headerActions} />
-      <div className="flex-1 overflow-y-auto">
+      <PanelHeader
+        leading={
+          <IconButton label="Voltar ao início do assistente" onClick={widget.showHome}>
+            <ArrowLeft aria-hidden="true" className="size-5" />
+          </IconButton>
+        }
+        title="Conversas"
+        subtitle="Tudo o que você já falou com o assistente"
+        {...frame}
+      />
+      <div className="flex-1 overflow-y-auto p-4">
         {conversations.isPending ? (
-          <SkeletonText lines={5} className="p-4" />
+          <SkeletonText lines={5} />
         ) : conversations.isError ? (
           <ErrorState
             title="Não foi possível carregar as conversas."
@@ -327,155 +507,82 @@ function MessagesView({
         ) : conversations.data.length === 0 ? (
           <EmptyState
             title="Nenhuma conversa ainda."
-            description="Comece uma conversa e eu ajudo a resolver."
-            icon={MessagesSquare}
+            description="Descreva um problema e eu ajudo a resolver."
+            icon={MessageSquare}
             className="py-10"
           />
         ) : (
-          <ul className="divide-y divide-border">
-            {conversations.data.map((item) => (
-              <li key={item.id}>
-                <button
-                  type="button"
-                  onClick={() => onOpenConversation(item.id)}
-                  className="group flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-hover focus-visible:bg-surface-hover focus-visible:outline-none"
-                >
-                  <AssistantAvatar className="size-8" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold text-text">
-                      {item.title ?? 'Nova conversa'}
-                    </span>
-                    <span className={cx('block text-xs', SECONDARY_ON_TINT)}>
-                      {CONVERSATION_STATUS_LABELS[item.status]}, {formatRelative(item.updated_at)}
-                    </span>
-                  </span>
-                  <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-secondary" />
-                </button>
-              </li>
-            ))}
-          </ul>
+          <ConversationList items={conversations.data} />
         )}
       </div>
       <div className="border-t border-border p-3">
-        <HomeAction
-          label="Nova conversa"
-          icon={MessageSquarePlus}
-          onClick={() => onOpenConversation(null)}
-        />
+        <button
+          type="button"
+          onClick={() => widget.startConversation()}
+          className={cx(
+            'flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-on-primary shadow-card transition-colors hover:bg-primary-hover',
+            FOCUS_RING,
+          )}
+        >
+          <SquarePen aria-hidden="true" className="size-4" />
+          Nova conversa
+        </button>
       </div>
     </>
   )
 }
 
-function ConversationView({
-  conversationId,
-  onCreated,
-  onBack,
-  onEscalated,
-  ...headerActions
-}: HeaderActionsProps & {
-  conversationId: number | null
-  onCreated: (id: number) => void
-  onBack: () => void
-  onEscalated: () => void
-}) {
+function ConversationView(frame: FrameProps) {
+  const widget = useAssistantWidget()
   const { user } = useAuth()
-  const state = useAssistantState()
   const session = useChatSession({
-    conversationId,
-    onConversationCreated: onCreated,
-    onEscalated,
+    conversationId: widget.conversationId,
+    onConversationCreated: widget.rememberConversation,
+    onEscalated: widget.close,
   })
+  const sentInitial = useRef(false)
+  const { initialMessage } = widget
+  const { submit } = session
+
+  // Conversa iniciada pela tela inicial (ou pela barra do início): envia a 1ª mensagem uma vez.
+  useEffect(() => {
+    if (!initialMessage || sentInitial.current) return
+    sentInitial.current = true
+    void submit(initialMessage)
+  }, [initialMessage, submit])
 
   return (
     <>
       <PanelHeader
-        title="Assistente de TI"
-        subtitle={
-          state ? (
-            <>
-              <span aria-hidden="true" className={cx('size-2 rounded-full', state.dot)} />
-              {state.text}
-            </>
-          ) : null
+        leading={
+          <>
+            <IconButton label="Voltar ao início do assistente" onClick={widget.showHome}>
+              <ArrowLeft aria-hidden="true" className="size-5" />
+            </IconButton>
+            <AssistantAvatar className="size-8" />
+          </>
         }
-        onBack={onBack}
-        {...headerActions}
+        title={session.conversation.data?.title ?? 'Nova conversa'}
+        subtitle={<StatusLine />}
+        extra={
+          <IconButton label="Nova conversa" onClick={() => widget.startConversation()}>
+            <SquarePen aria-hidden="true" className="size-4.5" />
+          </IconButton>
+        }
+        {...frame}
       />
-      {session.canFinish ? (
-        <div className="border-b border-border px-3 py-2">
-          <FinishActions session={session} compact />
-        </div>
-      ) : null}
-      <ChatLog session={session} userName={user?.name ?? 'Você'} compact />
+      <ChatLog
+        session={session}
+        userName={user?.name ?? 'Você'}
+        compact
+        after={<QuickReplies session={session} />}
+      />
       <TicketOffer session={session} inputId={INPUT_ID} />
       <ChatComposer
         session={session}
         inputId={INPUT_ID}
-        closedHint="Esta conversa foi encerrada. Volte e inicie uma nova conversa."
+        closedHint="Esta conversa foi encerrada. Comece uma nova pelo ícone de lápis."
       />
     </>
-  )
-}
-
-function PanelHeader({
-  title,
-  subtitle,
-  onBack,
-  onExpand,
-  onClose,
-}: HeaderActionsProps & { title: string; subtitle?: ReactNode; onBack?: () => void }) {
-  return (
-    <div className="flex items-center gap-2 border-b border-border px-2 py-2">
-      {onBack ? (
-        <button
-          type="button"
-          onClick={onBack}
-          aria-label="Voltar ao início do assistente"
-          className={cx(
-            'rounded-lg p-2 text-secondary transition-colors hover:bg-surface-hover hover:text-text',
-            FOCUS_RING,
-          )}
-        >
-          <ArrowLeft aria-hidden="true" className="size-5" />
-        </button>
-      ) : null}
-      {onBack ? <AssistantAvatar className="size-8" /> : null}
-      <div className={cx('min-w-0 flex-1', !onBack && 'pl-2')}>
-        <h2 className="truncate text-sm font-bold text-text">{title}</h2>
-        {subtitle ? (
-          <p className="flex items-center gap-1.5 truncate text-xs text-secondary">{subtitle}</p>
-        ) : null}
-      </div>
-      <HeaderButtons onExpand={onExpand} onClose={onClose} />
-    </div>
-  )
-}
-
-function TabButton({
-  icon: Icon,
-  label,
-  isActive,
-  onClick,
-}: {
-  icon: LucideIcon
-  label: string
-  isActive: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-current={isActive ? 'page' : undefined}
-      className={cx(
-        'flex min-h-14 flex-col items-center justify-center gap-0.5 text-xs font-semibold transition-colors hover:bg-surface-hover',
-        isActive ? 'text-primary' : 'text-secondary hover:text-text',
-        FOCUS_RING,
-      )}
-    >
-      <Icon aria-hidden="true" className="size-5" />
-      {label}
-    </button>
   )
 }

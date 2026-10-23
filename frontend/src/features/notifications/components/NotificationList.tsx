@@ -1,28 +1,10 @@
-import {
-  AlertTriangle,
-  CheckCircle2,
-  MessageSquare,
-  Ticket,
-  UserCheck,
-  XCircle,
-} from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
 import { useId } from 'react'
 
 import { cx, SECONDARY_ON_TINT } from '@/components/ui/styles'
 import { formatRelative } from '@/utils/format'
 
-import type { AppNotification, NotificationType } from '../types'
-
-/** Ícone e cor por tipo: azul para eventos, cor de estado só para prazo e resolução. */
-const ICONS: Record<NotificationType, { icon: LucideIcon; className: string }> = {
-  TICKET_CREATED: { icon: Ticket, className: 'bg-primary-soft text-primary' },
-  TICKET_ASSIGNED: { icon: UserCheck, className: 'bg-primary-soft text-primary' },
-  COMMENT_ADDED: { icon: MessageSquare, className: 'bg-primary-soft text-primary' },
-  TICKET_RESOLVED: { icon: CheckCircle2, className: 'bg-success-soft text-success' },
-  SLA_WARNING: { icon: AlertTriangle, className: 'bg-warning-soft text-warning' },
-  SLA_BREACHED: { icon: XCircle, className: 'bg-danger-soft text-danger' },
-}
+import { NOTIFICATION_ICONS } from '../icons'
+import type { AppNotification } from '../types'
 
 interface NotificationListProps {
   items: AppNotification[]
@@ -30,14 +12,14 @@ interface NotificationListProps {
   className?: string
 }
 
-/** Lista de notificações (sino, página e painel do início). Não lidas ficam tingidas. */
+/** Lista de notificações (sino e página). Não lidas ficam tingidas. */
 export function NotificationList({ items, onOpen, className }: NotificationListProps) {
   // Prefixo por lista: a mesma notificação pode aparecer no sino e no início ao mesmo tempo.
   const baseId = useId()
   return (
     <ul className={cx('divide-y divide-border', className)}>
       {items.map((notification) => {
-        const { icon: Icon, className: tone } = ICONS[notification.type]
+        const { icon: Icon, className: tone } = NOTIFICATION_ICONS[notification.type]
         const id = `${baseId}-${notification.id}`
         return (
           <li key={notification.id}>

@@ -1,5 +1,5 @@
-import { SendHorizontal } from 'lucide-react'
-import type { KeyboardEvent } from 'react'
+import { CheckCircle2, Headset, RotateCcw, SendHorizontal } from 'lucide-react'
+import type { KeyboardEvent, ReactNode } from 'react'
 import { useEffect, useRef } from 'react'
 
 import { ErrorState } from '@/components/ErrorState'
@@ -26,7 +26,16 @@ interface PartProps {
 }
 
 /** Histórico com os estados obrigatórios: carregando, erro, início (exemplos) e mensagens. */
-export function ChatLog({ session, compact = false, userName }: PartProps & { userName: string }) {
+export function ChatLog({
+  session,
+  compact = false,
+  userName,
+  after,
+}: PartProps & {
+  userName: string
+  /** Logo depois da última resposta (ex.: respostas rápidas no painel flutuante). */
+  after?: ReactNode
+}) {
   const { conversation, conversationId, messages, pending } = session
   const logRef = useRef<HTMLDivElement>(null)
 
@@ -105,7 +114,9 @@ export function ChatLog({ session, compact = false, userName }: PartProps & { us
                 {session.slowAI ? ' A IA local pode levar até 1 minuto.' : null}
               </p>
             </>
-          ) : null}
+          ) : (
+            after
+          )}
         </>
       )}
     </div>
@@ -207,5 +218,44 @@ export function ChatComposer({
         <span className="sr-only sm:not-sr-only">Enviar</span>
       </Button>
     </form>
+  )
+}
+
+/**
+ * Respostas rápidas depois da resposta do assistente: encerrar, dizer que não
+ * resolveu ou chamar a equipe — sem digitar. Somem enquanto a oferta de
+ * chamado estiver na tela (ela já é a ação principal).
+ */
+export function QuickReplies({ session }: PartProps) {
+  if (!session.canFinish || session.offerTicket) return null
+  return (
+    <div role="group" aria-label="Respostas rápidas" className="flex flex-wrap gap-2 pl-11">
+      <Button
+        size="sm"
+        variant="secondary"
+        icon={<CheckCircle2 aria-hidden="true" className="size-4 text-success" />}
+        isLoading={session.isResolving}
+        onClick={() => void session.resolve()}
+      >
+        Resolvido
+      </Button>
+      <Button
+        size="sm"
+        variant="secondary"
+        icon={<RotateCcw aria-hidden="true" className="size-4" />}
+        onClick={() => void session.submit('Não resolveu.')}
+      >
+        Não resolveu
+      </Button>
+      <Button
+        size="sm"
+        variant="secondary"
+        icon={<Headset aria-hidden="true" className="size-4" />}
+        isLoading={session.isEscalating}
+        onClick={() => void session.escalate()}
+      >
+        Falar com a equipe
+      </Button>
+    </div>
   )
 }

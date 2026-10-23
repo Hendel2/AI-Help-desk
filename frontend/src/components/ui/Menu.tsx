@@ -19,6 +19,10 @@ export interface MenuProps {
   triggerClassName?: string
   /** Lado em que o menu se alinha ao botão. */
   align?: 'start' | 'end'
+  /** Abre abaixo (padrão) ou acima do botão (ex.: conta no rodapé da sidebar). */
+  side?: 'bottom' | 'top'
+  /** Classes do contêiner (ex.: `w-full` quando o gatilho ocupa a largura toda). */
+  className?: string
   children: ReactNode
 }
 
@@ -26,7 +30,15 @@ export interface MenuProps {
  * Botão de menu (padrão WAI-ARIA "menu button"): setas, Home e End percorrem os
  * itens; Esc fecha e devolve o foco; clicar fora ou sair com Tab também fecha.
  */
-export function Menu({ label, trigger, triggerClassName, align = 'end', children }: MenuProps) {
+export function Menu({
+  label,
+  trigger,
+  triggerClassName,
+  align = 'end',
+  side = 'bottom',
+  className,
+  children,
+}: MenuProps) {
   const [open, setOpen] = useState(false)
   const menuId = useId()
   const wrapperRef = useRef<HTMLDivElement>(null)
@@ -87,7 +99,7 @@ export function Menu({ label, trigger, triggerClassName, align = 'end', children
   }
 
   return (
-    <div ref={wrapperRef} className="relative">
+    <div ref={wrapperRef} className={cx('relative', className)}>
       <button
         ref={triggerRef}
         type="button"
@@ -111,8 +123,11 @@ export function Menu({ label, trigger, triggerClassName, align = 'end', children
             tabIndex={-1}
             onKeyDown={onMenuKeyDown}
             className={cx(
-              'absolute top-full z-40 mt-2 min-w-52 rounded-xl border border-border bg-surface-raised p-1 shadow-overlay',
-              'origin-top transition duration-150 ease-out motion-reduce:transition-none starting:-translate-y-1 starting:opacity-0',
+              'absolute z-40 min-w-52 rounded-xl border border-border bg-surface-raised p-1 shadow-overlay',
+              'transition duration-150 ease-out motion-reduce:transition-none starting:opacity-0',
+              side === 'top'
+                ? 'bottom-full mb-2 origin-bottom starting:translate-y-1'
+                : 'top-full mt-2 origin-top starting:-translate-y-1',
               align === 'end' ? 'right-0' : 'left-0',
             )}
           >

@@ -177,12 +177,25 @@ const EXTRA_TITLES: Array<[RegExp, string]> = [
   [/^\/base-de-conhecimento\/[^/]+$/, 'Artigo'],
 ]
 
-/** Título curto da página atual para a barra superior. */
+/** Seção do menu de cada rota extra (detalhes e formulários). */
+const EXTRA_SECTIONS: Array<[RegExp, string]> = [
+  [/^\/chamados\//, 'Atendimento'],
+  [/^\/base-de-conhecimento\//, 'Conhecimento'],
+]
+
+/** Título curto da página atual. */
 export function getPageTitle(pathname: string): string {
+  return getBreadcrumb(pathname).page
+}
+
+/** Caminho da página atual na barra superior: seção do menu (se houver) e página. */
+export function getBreadcrumb(pathname: string): { section?: string; page: string } {
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname
   for (const section of NAV_SECTIONS) {
     const item = section.items.find((candidate) => candidate.to === path)
-    if (item) return item.label
+    if (item) return { section: section.title, page: item.label }
   }
-  return EXTRA_TITLES.find(([pattern]) => pattern.test(path))?.[1] ?? 'AI Help Desk'
+  const page = EXTRA_TITLES.find(([pattern]) => pattern.test(path))?.[1] ?? 'AI Help Desk'
+  const section = EXTRA_SECTIONS.find(([pattern]) => pattern.test(path))?.[1]
+  return { section, page }
 }

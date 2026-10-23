@@ -28,7 +28,7 @@ vi.mock('@/features/dashboard/services/dashboard.service', () => ({
 }))
 
 vi.mock('@/features/chat/services/chat.service', () => ({
-  chatService: { assistant: vi.fn() },
+  chatService: { assistant: vi.fn(), list: vi.fn().mockResolvedValue([]) },
 }))
 
 const { getMeWithRefresh } = await import('@/features/auth/services/auth.service')
@@ -113,8 +113,13 @@ describe('AppLayout', () => {
       'href',
       '#conteudo',
     )
-    expect(screen.getByText('Maria Souza')).toBeInTheDocument()
-    expect(screen.getByText('Administrador')).toBeInTheDocument()
+    // Conta no rodapé da sidebar; onde a pessoa está, no topo da folha.
+    const aside = screen.getByRole('complementary', { name: 'Menu lateral' })
+    expect(within(aside).getByText('Maria Souza')).toBeInTheDocument()
+    expect(within(aside).getByText('Administrador')).toBeInTheDocument()
+    const crumb = screen.getByRole('navigation', { name: 'Você está em' })
+    expect(within(crumb).getByText('Acesso rápido')).toBeInTheDocument()
+    expect(within(crumb).getByText('Meu perfil')).toHaveAttribute('aria-current', 'page')
   })
 
   it('mostra a administração apenas para o perfil ADMIN', async () => {
@@ -176,7 +181,8 @@ describe('AppLayout', () => {
     renderLayout('USER')
     await screen.findByRole('heading', { name: 'Meu perfil' })
 
-    const account = screen.getByRole('button', { name: /Conta de/ })
+    const aside = screen.getByRole('complementary', { name: 'Menu lateral' })
+    const account = within(aside).getByRole('button', { name: /Conta de/ })
     expect(account).toHaveAttribute('aria-expanded', 'false')
     await user.click(account)
     expect(account).toHaveAttribute('aria-expanded', 'true')
@@ -207,12 +213,14 @@ describe('AppLayout', () => {
     vi.mocked(chatService.assistant).mockResolvedValue({ ai_enabled: false, slow_responses: false })
     renderLayout('USER')
 
+    const user = userEvent.setup()
     const aside = await screen.findByRole('complementary', { name: 'Menu lateral' })
-    expect(await within(aside).findByText('Sem IA, modo básico')).toBeInTheDocument()
-    expect(within(aside).getByRole('link', { name: /Assistente de TI/ })).toHaveAttribute(
-      'href',
-      '/assistente',
-    )
+    expect(await within(aside).findByText('Sem IA')).toBeInTheDocument()
+
+    // Um clique abre o painel flutuante do assistente (sem sair da página).
+    await user.click(within(aside).getByRole('button', { name: /Assistente de TI/ }))
+    expect(screen.getByRole('dialog', { name: 'Assistente de TI' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Meu perfil' })).toBeInTheDocument()
   })
 
   it('recolhe o menu lateral e lembra a escolha', async () => {
@@ -262,7 +270,8 @@ describe('AppLayout', () => {
     renderLayout('USER')
     await screen.findByRole('heading', { name: 'Meu perfil' })
 
-    await user.click(screen.getByRole('button', { name: /Buscar páginas, chamados e artigos/ }))
+    const aside = screen.getByRole('complementary', { name: 'Menu lateral' })
+    await user.click(within(aside).getByRole('button', { name: /Buscar/ }))
     const dialog = screen.getByRole('dialog', { name: 'Buscar no AI Help Desk' })
     await user.type(within(dialog).getByRole('combobox'), 'impressora')
 

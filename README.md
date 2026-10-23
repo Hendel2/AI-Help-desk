@@ -11,7 +11,7 @@ Plataforma SaaS multiempresa que une a operação completa de um Help Desk (cham
 - **Multiempresa de verdade:** isolamento por empresa garantido na camada de dados e coberto por testes.
 - **IA com guarda-corpos:** RAG restrito à empresa, respostas com fontes, saídas do LLM validadas e nenhuma ação automática sem revisão humana.
 - **Regras de negócio no backend:** fluxo de status, SLA e permissões validados no servidor, não na interface.
-- **Interface de produto B2B:** design system próprio ("painel noturno", azul-marinho e azul) com tema claro e escuro; início com banner de boas-vindas, situação do que pede atenção e indicadores; menu lateral com seções, contadores e modo recolhido; busca global com Ctrl+K. Responsiva (o menu vira gaveta no celular) e acessível (teclado, foco visível, leitores de tela, contraste WCAG AA nos dois temas).
+- **Interface de produto B2B:** design system próprio ("Canhoto": violeta sobre grafite ou papel, indicadores em forma de canhoto de chamado) com tema claro e escuro; início com resumo do momento, pergunta direta ao assistente, indicadores por período e linha do tempo de novidades; menu lateral flutuante com busca (Ctrl+K), seções, contadores, assistente, conta e modo recolhido; assistente de TI flutuante em todas as telas. Responsiva (o menu vira gaveta no celular) e acessível (teclado, foco visível, leitores de tela, contraste WCAG AA nos dois temas).
 - **Prazo à vista:** cada chamado aberto mostra uma linha de prazo com quanto do SLA já foi consumido — neutra no prazo, âmbar perto do vencimento, vermelha quando vence.
 - **Pronto para rodar:** um `docker compose up` sobe frontend, API, MySQL, banco vetorial e uma IA local, com dados de demonstração.
 
@@ -144,7 +144,7 @@ No frontend, os dados seguem o fluxo **Componente → Hook → TanStack Query �
 |--------|-------------|
 | Backend | Python, FastAPI, SQLAlchemy 2, Alembic, Pydantic, JWT, Argon2 |
 | Banco de dados | MySQL 8.4 |
-| Frontend | React 19, TypeScript, Vite, Tailwind CSS 4, React Router, TanStack Query, React Hook Form, Zod, Lucide, Plus Jakarta Sans |
+| Frontend | React 19, TypeScript, Vite, Tailwind CSS 4, React Router, TanStack Query, React Hook Form, Zod, Lucide, Space Grotesk + Plus Jakarta Sans |
 | IA e RAG | Camada de abstração de LLM, ChromaDB |
 | Qualidade | Pytest, Ruff, Vitest, Testing Library, ESLint (com regras de acessibilidade) |
 | Infraestrutura | Docker, Docker Compose |

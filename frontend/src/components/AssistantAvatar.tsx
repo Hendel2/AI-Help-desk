@@ -1,6 +1,8 @@
 import { cx } from '@/components/ui/styles'
 
 interface AssistantAvatarProps {
+  /** Com o círculo de fundo (padrão) ou só o rosto, para pôr sobre outra forma. */
+  framed?: boolean
   className?: string
 }
 
@@ -8,10 +10,10 @@ interface AssistantAvatarProps {
  * Rosto do Assistente de TI: um robô com headset de atendimento. Decorativo
  * (quem usa dá o nome acessível) e desenhado com os tokens, então acompanha o tema.
  */
-export function AssistantAvatar({ className }: AssistantAvatarProps) {
+export function AssistantAvatar({ framed = true, className }: AssistantAvatarProps) {
   return (
     <svg viewBox="0 0 64 64" aria-hidden="true" className={cx('shrink-0', className)}>
-      <circle cx="32" cy="32" r="32" className="fill-primary" />
+      {framed ? <circle cx="32" cy="32" r="32" className="fill-primary" /> : null}
       {/* Antena com a luz de "online" */}
       <path d="M32 19v-6" strokeWidth="2.5" strokeLinecap="round" className="stroke-surface" />
       <circle cx="32" cy="11.5" r="3" className="fill-success" />

@@ -20,7 +20,7 @@ export function PageHeader({ title, description, meta, actions, className }: Pag
     >
       <div className="min-w-0 space-y-1.5">
         {meta}
-        <h1 className="text-xl font-bold tracking-tight break-words text-text sm:text-2xl">
+        <h1 className="font-display text-2xl font-semibold tracking-tight break-words text-text sm:text-3xl">
           {title}
         </h1>
         {description ? <p className="max-w-prose text-sm text-secondary">{description}</p> : null}

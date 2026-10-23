@@ -76,7 +76,7 @@ export function ChatPage() {
       <section
         aria-label="Assistente de TI"
         // Altura fixa: só as mensagens rolam, a caixa de digitação fica sempre visível.
-        className="flex h-[calc(100dvh-9.5rem)] min-h-96 flex-col rounded-xl border border-border bg-surface shadow-card lg:h-[calc(100dvh-11.5rem)]"
+        className="flex h-[calc(100dvh-11.25rem)] min-h-96 flex-col rounded-2xl border border-border bg-surface shadow-card lg:h-[calc(100dvh-9.75rem)]"
       >
         <header className="flex flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">

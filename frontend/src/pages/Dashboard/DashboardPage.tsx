@@ -3,6 +3,7 @@ import {
   BarChart3,
   CalendarDays,
   ChartPie,
+  CheckCircle2,
   Clock,
   History,
   Inbox,
@@ -21,30 +22,28 @@ import type { ReactNode } from 'react'
 import { BarList } from '@/components/charts/BarList'
 import { ColumnChart } from '@/components/charts/ColumnChart'
 import { ErrorState } from '@/components/ErrorState'
-import { RadialProgress } from '@/components/RadialProgress'
-import type { RadialTone } from '@/components/RadialProgress'
 import { SectionHeading, SeeAllLink } from '@/components/SectionHeading'
 import { StatGroup, StatTile } from '@/components/StatTile'
+import type { StatTone } from '@/components/StatTile'
 import { Card } from '@/components/ui/Card'
-import { Select } from '@/components/ui/Select'
+import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { SkeletonText } from '@/components/ui/Skeleton'
 import { useAuth } from '@/features/auth/useAuth'
+import { AskAssistantCard } from '@/features/chat/components/AskAssistantCard'
+import { ActivityTimeline } from '@/features/dashboard/components/ActivityTimeline'
 import { AIInsightsCard } from '@/features/dashboard/components/AIInsights'
 import {
   ActivityFeed,
   RecentTicketsList,
   TechnicianTable,
 } from '@/features/dashboard/components/DashboardLists'
-import { LatestNotifications } from '@/features/dashboard/components/LatestNotifications'
-import { SituationCards } from '@/features/dashboard/components/SituationCards'
-import { WelcomeBanner } from '@/features/dashboard/components/WelcomeBanner'
+import { HomeHeader } from '@/features/dashboard/components/HomeHeader'
 import {
   useDashboardAI,
   useDashboardMetrics,
   useDashboardSLA,
   useDashboardTickets,
 } from '@/features/dashboard/hooks/useDashboard'
-import { PERIOD_OPTIONS } from '@/features/dashboard/periods'
 import type { DashboardMetrics, DashboardTickets } from '@/features/dashboard/types'
 import { PRIORITY_LABELS } from '@/features/tickets/labels'
 import type { TicketPriority } from '@/features/tickets/types'
@@ -60,7 +59,13 @@ function shortDate(iso: string): { short: string; full: string } {
 /** Painéis lado a lado só quando a coluna de conteúdo comporta (container query). */
 const PANEL_GRID = 'grid grid-cols-1 gap-6 @2xl:grid-cols-2'
 
-/** Início por perfil (§39–41): boas-vindas, situação, indicadores, painéis e notificações. */
+const PERIODS = [
+  { value: '7', label: '7 dias' },
+  { value: '30', label: '30 dias' },
+  { value: '90', label: '90 dias' },
+]
+
+/** Início por perfil (§39–41): abertura, assistente, indicadores em canhoto, painéis e novidades. */
 export function DashboardPage() {
   const { user } = useAuth()
   const [days, setDays] = useState(30)
@@ -75,47 +80,43 @@ export function DashboardPage() {
   const periodCaption = `nos últimos ${days} dias`
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-8">
-      <WelcomeBanner role={user.role} firstName={firstName} metrics={metrics.data} />
+    // @container: as colunas seguem a folha de conteúdo (sidebar aberta ou recolhida).
+    <div className="@container mx-auto w-full max-w-7xl space-y-8">
+      <div className="grid grid-cols-1 gap-4 @4xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <HomeHeader role={user.role} firstName={firstName} metrics={metrics.data} />
+        <AskAssistantCard />
+      </div>
 
-      <section aria-labelledby="situacao-titulo" className="space-y-4">
-        <SectionHeading id="situacao-titulo" title="Situação" />
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <SituationCards role={user.role} metrics={metrics.data} />
-        </div>
-      </section>
-
-      <div className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className="@container min-w-0 space-y-8">
-          {/* O grupo de números já é a região "Indicadores"; aqui só o título e o período. */}
-          <div className="space-y-4">
-            <SectionHeading
-              id="indicadores-titulo"
-              title="Indicadores"
-              action={
-                <Select
-                  label="Período"
-                  options={PERIOD_OPTIONS}
-                  value={String(days)}
-                  onChange={(event) => setDays(Number(event.target.value))}
-                  containerClassName="w-full sm:w-44"
-                />
-              }
+      {/* O grupo de números já é a região "Indicadores"; aqui só o título e o período. */}
+      <div className="space-y-4">
+        <SectionHeading
+          id="indicadores-titulo"
+          title="Indicadores"
+          action={
+            <SegmentedControl
+              label="Período"
+              options={PERIODS}
+              value={String(days)}
+              onChange={(value) => setDays(Number(value))}
             />
-            {metrics.isError ? (
-              <ErrorState
-                title="Não foi possível carregar os indicadores."
-                description={getErrorMessage(metrics.error)}
-                onRetry={() => void metrics.refetch()}
-                isRetrying={metrics.isFetching}
-              />
-            ) : (
-              <StatGroup label="Indicadores">
-                <Tiles role={user.role} metrics={metrics.data} periodCaption={periodCaption} />
-              </StatGroup>
-            )}
-          </div>
+          }
+        />
+        {metrics.isError ? (
+          <ErrorState
+            title="Não foi possível carregar os indicadores."
+            description={getErrorMessage(metrics.error)}
+            onRetry={() => void metrics.refetch()}
+            isRetrying={metrics.isFetching}
+          />
+        ) : (
+          <StatGroup label="Indicadores">
+            <Tiles role={user.role} metrics={metrics.data} periodCaption={periodCaption} />
+          </StatGroup>
+        )}
+      </div>
 
+      <div className="grid grid-cols-1 gap-6 @4xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="@container min-w-0 space-y-6">
           {user.role === 'USER' ? (
             <Panel
               title="Chamados recentes"
@@ -184,6 +185,7 @@ export function DashboardPage() {
               <Card
                 title="Evolução do SLA"
                 icon={ShieldCheck}
+                className="@2xl:col-span-2"
                 action={
                   metrics.data ? (
                     <span className="text-xs text-secondary">
@@ -218,22 +220,28 @@ export function DashboardPage() {
                   />
                 )}
               </Card>
-              <Panel title="Desempenho dos técnicos" icon={Users} query={tickets}>
+              {/* Tabela de 4 colunas: a largura toda para não espremer os números. */}
+              <Panel
+                title="Desempenho dos técnicos"
+                icon={Users}
+                query={tickets}
+                className="@2xl:col-span-2"
+              >
                 {(data) => <TechnicianTable rows={data.technicians ?? []} />}
               </Panel>
             </div>
           ) : null}
         </div>
 
-        <LatestNotifications className="self-start xl:sticky xl:top-24" />
+        <ActivityTimeline className="self-start" />
       </div>
     </div>
   )
 }
 
 /** Percentual de prazo cumprido: âmbar abaixo de 80% (risco), verde acima. */
-function deadlineTone(value: number | null): RadialTone {
-  if (value === null) return 'primary'
+function deadlineTone(value: number | null): StatTone {
+  if (value === null) return 'neutral'
   return value < 80 ? 'warning' : 'success'
 }
 
@@ -248,28 +256,44 @@ function Tiles({
 }) {
   const loading = metrics === undefined
   const value = (key: keyof DashboardMetrics) => (metrics ? String(metrics[key] ?? '—') : null)
+  const percent = (pct: number | null) =>
+    pct === null ? (loading ? null : '—') : formatPercent(pct)
 
   if (role === 'USER') {
     const total = metrics ? metrics.open + metrics.resolved : 0
     const resolvedPct = metrics && total > 0 ? (100 * metrics.resolved) / total : null
+    const waiting = metrics?.waiting_user ?? 0
     return (
       <>
-        <RadialProgress
-          value={resolvedPct}
-          label={
-            metrics && total > 0
-              ? `dos seus ${total} chamados já foram resolvidos`
-              : 'Nenhum chamado ainda'
-          }
-          isLoading={loading}
-        />
-        <StatTile label="Em aberto" value={value('open')} icon={Inbox} isLoading={loading} />
         <StatTile
           label="Aguardando você"
           value={value('waiting_user')}
-          caption={metrics && metrics.waiting_user > 0 ? 'precisam da sua resposta' : undefined}
+          caption={
+            metrics ? (waiting > 0 ? 'precisam da sua resposta' : 'nada pendente') : undefined
+          }
           icon={MessageSquareReply}
-          tone={metrics && metrics.waiting_user > 0 ? 'warning' : 'neutral'}
+          tone={waiting > 0 ? 'warning' : 'neutral'}
+          to="/chamados/meus?status=WAITING_USER"
+          isLoading={loading}
+        />
+        <StatTile
+          label="Em aberto"
+          value={value('open')}
+          caption="com a equipe agora"
+          icon={Inbox}
+          to="/chamados/meus"
+          isLoading={loading}
+        />
+        <StatTile
+          label="Resolvidos"
+          value={value('resolved')}
+          caption={
+            resolvedPct === null
+              ? 'nenhum chamado ainda'
+              : `${formatPercent(resolvedPct)} dos seus ${total} chamados`
+          }
+          icon={CheckCircle2}
+          meter={resolvedPct}
           isLoading={loading}
         />
         <StatTile
@@ -290,20 +314,25 @@ function Tiles({
         : null
     return (
       <>
-        <RadialProgress
-          value={onTimePct}
-          tone={deadlineTone(onTimePct)}
-          label={
+        <StatTile
+          label="No prazo"
+          value={percent(onTimePct)}
+          caption={
             metrics && metrics.open > 0
-              ? `dos ${metrics.open} chamados em aberto estão no prazo`
-              : 'Nenhum chamado em aberto'
+              ? `dos ${metrics.open} chamados em aberto`
+              : 'nenhum chamado em aberto'
           }
+          icon={ShieldCheck}
+          tone={deadlineTone(onTimePct)}
+          meter={onTimePct}
           isLoading={loading}
         />
         <StatTile
           label="Atribuídos a mim"
           value={value('assigned_to_me')}
+          caption="na sua fila agora"
           icon={UserCheck}
+          to="/chamados/meus"
           isLoading={loading}
         />
         <StatTile
@@ -312,6 +341,7 @@ function Tiles({
           caption="SLA quase vencendo"
           icon={AlertTriangle}
           tone={metrics && metrics.sla_warning > 0 ? 'warning' : 'neutral'}
+          to="/chamados"
           isLoading={loading}
         />
         <StatTile
@@ -320,6 +350,7 @@ function Tiles({
           caption="em aberto e fora do prazo"
           icon={XCircle}
           tone={metrics && metrics.sla_breached > 0 ? 'danger' : 'neutral'}
+          to="/chamados"
           isLoading={loading}
         />
       </>
@@ -329,12 +360,15 @@ function Tiles({
   const compliance = metrics?.sla_compliance_pct ?? null
   return (
     <>
-      <RadialProgress
-        value={compliance}
-        tone={deadlineTone(compliance)}
-        label={
-          compliance === null ? 'Sem chamados resolvidos no período' : 'resolvidos dentro do SLA'
+      <StatTile
+        label="Dentro do SLA"
+        value={percent(compliance)}
+        caption={
+          compliance === null ? 'sem chamados resolvidos no período' : `resolvidos ${periodCaption}`
         }
+        icon={ShieldCheck}
+        tone={deadlineTone(compliance)}
+        meter={compliance}
         isLoading={loading}
       />
       <StatTile
@@ -342,6 +376,7 @@ function Tiles({
         value={value('created_in_period')}
         caption={periodCaption}
         icon={Inbox}
+        to="/chamados"
         isLoading={loading}
       />
       <StatTile

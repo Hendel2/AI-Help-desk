@@ -13,11 +13,11 @@ interface SectionHeadingProps {
   className?: string
 }
 
-/** Título de seção fora de card (ex.: "Situação", "Indicadores" no início). */
+/** Título de seção fora de card (ex.: "Indicadores" no início). */
 export function SectionHeading({ id, title, action, className }: SectionHeadingProps) {
   return (
     <div className={cx('flex flex-wrap items-end justify-between gap-3', className)}>
-      <h2 id={id} className="text-lg font-bold tracking-tight text-text">
+      <h2 id={id} className="font-display text-xl font-semibold tracking-tight text-text">
         {title}
       </h2>
       {action}

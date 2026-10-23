@@ -218,7 +218,7 @@ function PaletteDialog({ onClose, role }: Omit<CommandPaletteProps, 'isOpen'>) {
               <div key={group.name} role="group" aria-label={group.name} className="py-1">
                 <div
                   role="presentation"
-                  className="px-3 pt-1 pb-1.5 text-2xs font-semibold tracking-wider text-secondary uppercase"
+                  className="px-3 pt-1 pb-1.5 text-xs font-semibold text-secondary"
                 >
                   {group.name}
                 </div>

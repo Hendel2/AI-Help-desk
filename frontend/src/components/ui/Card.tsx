@@ -32,7 +32,7 @@ export function Card({ title, icon: Icon, action, className, children }: CardPro
         <header className="flex min-h-14 items-center justify-between gap-4 px-4 pt-4 sm:px-5">
           <h2
             id={titleId}
-            className="flex items-center gap-2 text-base font-bold tracking-tight text-text"
+            className="flex items-center gap-2 font-display text-base font-semibold tracking-tight text-text"
           >
             {Icon ? <Icon aria-hidden="true" className="size-4.5 shrink-0 text-primary" /> : null}
             {title}
