@@ -2,7 +2,7 @@ import { BookOpen, ThumbsDown, ThumbsUp } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router'
 
-import { BrandMark } from '@/components/BrandMark'
+import { AssistantAvatar } from '@/components/AssistantAvatar'
 import { Avatar } from '@/components/ui/Avatar'
 import { cx, FOCUS_RING } from '@/components/ui/styles'
 import { useToast } from '@/components/ui/useToast'
@@ -29,11 +29,7 @@ export function ChatMessage({ message, userName }: ChatMessageProps) {
   const isUser = message.role === 'USER'
   return (
     <div className={cx('flex gap-3', isUser && 'flex-row-reverse')}>
-      {isUser ? (
-        <Avatar name={userName} size="sm" />
-      ) : (
-        <BrandMark withName={false} className="size-8 shrink-0 justify-center" />
-      )}
+      {isUser ? <Avatar name={userName} size="sm" /> : <AssistantAvatar className="size-8" />}
       <div className={cx('max-w-[85%] space-y-2 sm:max-w-[75%]', isUser && 'items-end text-right')}>
         <p className="text-xs font-medium text-secondary">{isUser ? 'Você' : 'Assistente de TI'}</p>
         <div

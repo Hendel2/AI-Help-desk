@@ -20,7 +20,7 @@ htmlcov/
 .coverage
 .coverage.*
 
-# Bancos locais (SQLite de desenvolvimento e testes)
+
 *.db
 *.sqlite3
 
@@ -46,18 +46,14 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# -----------------------------------------------------------------------------
-# Sistema operacional
-# -----------------------------------------------------------------------------
+
 .DS_Store
 Thumbs.db
 ehthumbs.db
 Desktop.ini
 $RECYCLE.BIN/
 
-# -----------------------------------------------------------------------------
-# IDEs e editores
-# -----------------------------------------------------------------------------
+
 .idea/
 .vscode/*
 !.vscode/extensions.json
@@ -65,9 +61,7 @@ $RECYCLE.BIN/
 *.swo
 *~
 
-# -----------------------------------------------------------------------------
-# Claude Code (tudo relacionado ao Claude fica fora do versionamento)
-# -----------------------------------------------------------------------------
+
 .claude/
 CLAUDE.md
 CLAUDE.local.md

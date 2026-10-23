@@ -6,8 +6,8 @@ import { cx } from '@/components/ui/styles'
 import { Drawer } from '@/components/ui/Drawer'
 import { SkeletonText } from '@/components/ui/Skeleton'
 import { useAuth } from '@/features/auth/useAuth'
+import { ChatWidget } from '@/features/chat/components/ChatWidget'
 
-import { AssistantLauncher } from './AssistantLauncher'
 import { CommandPalette } from './CommandPalette'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
@@ -41,7 +41,7 @@ export function AppLayout() {
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(readCollapsed)
   const sidebarId = useId()
-  // No chat a caixa de mensagem ocupa a tela toda e o botão flutuante some.
+  // No chat a caixa de mensagem ocupa a tela toda e a bolinha do assistente some.
   const isChat = useLocation().pathname.startsWith('/assistente')
 
   const toggleSidebar = useCallback(() => {
@@ -109,7 +109,7 @@ export function AppLayout() {
           sidebarId={sidebarId}
           onOpenSearch={() => setIsSearchOpen(true)}
         />
-        {/* pb extra: o botão flutuante do assistente não cobre o fim da página. */}
+        {/* pb extra: a bolinha do assistente não cobre o fim da página. */}
         <main
           id="conteudo"
           className={cx(
@@ -129,7 +129,7 @@ export function AppLayout() {
         onClose={() => setIsSearchOpen(false)}
         role={user.role}
       />
-      <AssistantLauncher />
+      <ChatWidget />
     </div>
   )
 }

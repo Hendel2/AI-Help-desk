@@ -19,8 +19,13 @@ export function useAssistantInfo() {
   })
 }
 
-export function useConversations() {
-  return useQuery({ queryKey: chatKeys.list(), queryFn: ({ signal }) => chatService.list(signal) })
+/** `enabled = false` adia a busca (ex.: o painel flutuante só carrega ao abrir). */
+export function useConversations(enabled = true) {
+  return useQuery({
+    queryKey: chatKeys.list(),
+    queryFn: ({ signal }) => chatService.list(signal),
+    enabled,
+  })
 }
 
 export function useConversation(id: number | null) {
@@ -79,7 +84,10 @@ export function useConversationOutcome(conversationId: number | null) {
         void queryClient.invalidateQueries({ queryKey: ['tickets'] })
       },
     }),
-    resolve: useMutation({ mutationFn: () => chatService.resolve(conversationId ?? 0), onSuccess: refresh }),
+    resolve: useMutation({
+      mutationFn: () => chatService.resolve(conversationId ?? 0),
+      onSuccess: refresh,
+    }),
   }
 }
 
