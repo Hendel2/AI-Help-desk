@@ -1,14 +1,19 @@
 """Provedor Gemini (REST) com transporte HTTP simulado — sem rede."""
 
 import json
+import time
+from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 import httpx
 import pytest
 
 from app.core.config import Settings
+from app.services.ai import provider as provider_module
 from app.services.ai.provider import (
     DEFAULT_GEMINI_MODEL,
+    GEMINI_BACKUP_MODEL,
     AIProviderError,
     AIRefusalError,
     ChatTurn,
@@ -180,3 +185,95 @@ def test_factory_requires_a_key_and_uses_the_default_model(settings: Settings) -
     provider = get_provider(with_key)
     assert isinstance(provider, GeminiProvider)
     assert provider.model == DEFAULT_GEMINI_MODEL
+    assert provider.backup_model == GEMINI_BACKUP_MODEL
+
+
+# --- Modelo de apoio ------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def own_pool(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Pool próprio por teste: a chamada que perdeu a corrida termina dentro do teste."""
+    pool = ThreadPoolExecutor(max_workers=2)
+    monkeypatch.setattr(provider_module, "_GEMINI_POOL", pool)
+    yield
+    pool.shutdown(wait=True)
+
+
+def make_raced_provider(primary: Any, backup: Any) -> tuple[GeminiProvider, list[str]]:
+    """Principal e apoio com respostas próprias; registra qual modelo foi chamado."""
+    called: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        model = request.url.path.rsplit("/", 1)[-1].split(":")[0]
+        called.append(model)
+        return primary() if model == "principal" else backup()
+
+    provider = GeminiProvider(
+        api_key="k",
+        model="principal",
+        backup_model="apoio",
+        hedge_after_seconds=0.05,
+        transport=httpx.MockTransport(handler),
+    )
+    return provider, called
+
+
+def ok(text: str) -> Any:
+    return lambda: httpx.Response(200, json=gemini_response(text))
+
+
+def test_fast_primary_does_not_call_the_backup() -> None:
+    provider, called = make_raced_provider(ok("principal"), ok("apoio"))
+
+    result = provider.complete(system="s", user_content="u", max_tokens=10, effort="low")
+
+    assert result.text == "principal"
+    assert called == ["principal"]
+
+
+def test_slow_primary_is_raced_against_the_backup() -> None:
+    def slow() -> httpx.Response:
+        time.sleep(1)
+        return httpx.Response(200, json=gemini_response("principal"))
+
+    provider, called = make_raced_provider(slow, ok("apoio"))
+
+    result = provider.complete(system="s", user_content="u", max_tokens=10, effort="low")
+
+    # Vale a primeira resposta: a pessoa não espera o modelo congestionado.
+    assert result.text == "apoio"
+    assert sorted(called) == ["apoio", "principal"]
+    assert result.latency_ms < 1000
+
+
+def test_failing_primary_goes_straight_to_the_backup() -> None:
+    provider, called = make_raced_provider(lambda: httpx.Response(503), ok("apoio"))
+
+    result = provider.complete(system="s", user_content="u", max_tokens=10, effort="low")
+
+    assert result.text == "apoio"
+    # Sem nova tentativa no principal: o apoio já é a segunda chance.
+    assert called == ["principal", "apoio"]
+
+
+def test_error_when_primary_and_backup_fail() -> None:
+    provider, called = make_raced_provider(
+        lambda: httpx.Response(503), lambda: httpx.Response(429, json={})
+    )
+
+    # O erro segue para o reserva (IA local) pelo FallbackProvider.
+    with pytest.raises(AIProviderError):
+        provider.complete(system="s", user_content="u", max_tokens=10, effort="low")
+    assert called == ["principal", "apoio"]
+
+
+def test_refusal_does_not_go_to_the_backup() -> None:
+    refused = lambda: httpx.Response(  # noqa: E731
+        200, json={"promptFeedback": {"blockReason": "SAFETY"}}
+    )
+    provider, called = make_raced_provider(refused, ok("apoio"))
+
+    with pytest.raises(AIRefusalError):
+        provider.complete(system="s", user_content="u", max_tokens=10, effort="low")
+    assert called == ["principal"]

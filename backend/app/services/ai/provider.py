@@ -8,15 +8,20 @@ O padrão é `AI_PROVIDER=gemini` (só vale com `AI_API_KEY`). `none` não cria
 provedor: cada tarefa de IA usa sua heurística local, e o sistema continua
 funcional sem chave de API.
 
-`AI_FALLBACK_PROVIDER` (ex.: `ollama`, a IA local do compose) é o reserva: se o
-principal falhar — fora do ar, cota esgotada, erro —, a mesma chamada vai para
-ele. Só se os dois falharem o recurso cai para a heurística local.
+No Gemini, um segundo modelo na nuvem (`GEMINI_BACKUP_MODEL`) cobre lentidão e
+falhas do principal em segundos. `AI_FALLBACK_PROVIDER` (ex.: `ollama`, a IA local
+do compose) é o reserva: se o Gemini falhar — fora do ar, cota esgotada, erro —, a
+mesma chamada vai para ele. Só se todos falharem o recurso cai para a heurística
+local.
 """
 
+import functools
 import logging
 import time
 from collections.abc import Sequence
-from dataclasses import dataclass
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import TimeoutError as FutureTimeoutError
+from dataclasses import dataclass, replace
 from typing import Any, Literal, Protocol
 
 import anthropic
@@ -33,6 +38,15 @@ DEFAULT_ANTHROPIC_MODEL = "claude-opus-5-5"
 #: o Flash, que chega a ~10 s e recusa com 503 em horários de pico. Para respostas mais
 #: elaboradas: AI_MODEL=gemini-3.8-flash.
 DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite"
+#: Modelo de apoio na nuvem (outra faixa de capacidade, ~1,7 s por resposta com
+#: raciocínio curto): entra quando o principal demora ou falha — bem antes da IA local,
+#: que leva dezenas de segundos no processador. O gemini-3.1-flash-lite foi descartado:
+#: em 2026-10-23 alternou entre 1,3 s e 503/tempo esgotado.
+GEMINI_BACKUP_MODEL = "gemini-3.5-flash"
+#: Sem resposta do principal nesse tempo, a pergunta vai também para o modelo de apoio
+#: e vale a primeira resposta. Normal: 1–5 s (Copilot até ~5 s); em pico o
+#: principal chegou a 15–36 s e a devolver 503 depois de ~30 s.
+GEMINI_HEDGE_AFTER_SECONDS = 6.0
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 #: Modelo local leve (2,5 GB), responde direto (sem etapa de raciocínio) e roda no processador.
 DEFAULT_OLLAMA_MODEL = "qwen3:4b-instruct"
@@ -172,6 +186,8 @@ _GEMINI_REFUSALS = {"SAFETY", "PROHIBITED_CONTENT", "BLOCKLIST", "SPII", "RECITA
 #: tokens antes de cada resposta (~10 s no chat). "minimal" não é aceito no Flash 3.8;
 #: esforço "high" fica com o padrão do modelo.
 _GEMINI_THINKING: dict[Effort, str] = {"low": "low", "medium": "low"}
+#: Corrida entre o modelo principal e o de apoio (chamadas HTTP bloqueantes).
+_GEMINI_POOL = ThreadPoolExecutor(max_workers=16, thread_name_prefix="gemini")
 _GEMINI_TYPES = {
     "object": "OBJECT",
     "array": "ARRAY",
@@ -200,7 +216,13 @@ def to_gemini_schema(schema: dict[str, Any]) -> dict[str, Any]:
 
 
 class GeminiProvider:
-    """Gemini via API REST (`generateContent`), sem SDK: só `httpx`."""
+    """Gemini via API REST (`generateContent`), sem SDK: só `httpx`.
+
+    Com `backup_model`, uma pergunta nunca fica presa num modelo congestionado: se
+    o principal falha ou passa de `hedge_after_seconds` sem responder, a mesma
+    pergunta vai também para o modelo de apoio (cota e fila próprias) e vale a
+    primeira resposta que chegar.
+    """
 
     name = "gemini"
 
@@ -209,10 +231,14 @@ class GeminiProvider:
         *,
         api_key: str,
         model: str,
-        timeout_seconds: float = 60.0,
+        backup_model: str | None = None,
+        hedge_after_seconds: float = GEMINI_HEDGE_AFTER_SECONDS,
+        timeout_seconds: float = 25.0,
         transport: httpx.BaseTransport | None = None,
     ) -> None:
         self.model = model
+        self.backup_model = backup_model if backup_model != model else None
+        self.hedge_after_seconds = hedge_after_seconds
         # A chave vai no cabeçalho (nunca na URL, que pode parar em logs).
         self.client = httpx.Client(
             base_url=GEMINI_API_URL,
@@ -231,10 +257,65 @@ class GeminiProvider:
         json_schema: dict[str, Any] | None = None,
         history: Sequence[ChatTurn] = (),
     ) -> LLMResult:
+        call = functools.partial(
+            self._call,
+            system=system,
+            user_content=user_content,
+            max_tokens=max_tokens,
+            effort=effort,
+            json_schema=json_schema,
+            history=history,
+        )
+        if self.backup_model is None:
+            return call(self.model, retry=True)
+
+        started = time.perf_counter()
+        primary = _GEMINI_POOL.submit(call, self.model, retry=False)
+        try:
+            return primary.result(timeout=self.hedge_after_seconds)
+        except FutureTimeoutError:
+            reason, contenders = "sem resposta a tempo", [primary]
+        except AIRefusalError:
+            raise
+        except AIProviderError as exc:
+            reason, contenders = str(exc), []
+
+        logger.info(
+            "Modelo Gemini principal %s; consultando também o de apoio",
+            reason,
+            extra={"model": self.model, "backup_model": self.backup_model},
+        )
+        contenders.append(_GEMINI_POOL.submit(call, self.backup_model, retry=False))
+        error: AIProviderError | None = None
+        for future in as_completed(contenders):
+            try:
+                result = future.result()
+            except AIRefusalError:
+                raise
+            except AIProviderError as exc:
+                error = exc
+                continue
+            # Latência = o que a pessoa esperou, desde a primeira tentativa.
+            return replace(result, latency_ms=int((time.perf_counter() - started) * 1000))
+        assert error is not None
+        raise error
+
+    def _call(
+        self,
+        model: str,
+        *,
+        retry: bool,
+        system: str,
+        user_content: str,
+        max_tokens: int,
+        effort: Effort,
+        json_schema: dict[str, Any] | None,
+        history: Sequence[ChatTurn],
+    ) -> LLMResult:
         generation: dict[str, Any] = {"maxOutputTokens": max_tokens}
         level = _GEMINI_THINKING.get(effort)
         # Gemini 2.x usa outro parâmetro (thinkingBudget): fica com o padrão do modelo.
-        if level and not self.model.startswith("gemini-2"):
+        if level and not model.startswith("gemini-2"):
             generation["thinkingConfig"] = {"thinkingLevel": level}
         if json_schema is not None:
             generation["responseMimeType"] = "application/json"
@@ -252,7 +333,7 @@ class GeminiProvider:
         }
 
         started = time.perf_counter()
-        response = self._post(body)
+        response = self._post(model, body, retry=retry)
         latency_ms = int((time.perf_counter() - started) * 1000)
         data = response.json()
 
@@ -279,22 +360,27 @@ class GeminiProvider:
         )
         return LLMResult(
             text=text,
-            model=data.get("modelVersion") or self.model,
+            model=data.get("modelVersion") or model,
             input_tokens=usage.get("promptTokenCount"),
             output_tokens=output_tokens or None,
             latency_ms=latency_ms,
         )
 
-    def _post(self, body: dict[str, Any]) -> httpx.Response:
-        """Uma nova tentativa só para falhas transitórias (5xx ou rede)."""
-        for attempt in range(2):
+    def _post(self, model: str, body: dict[str, Any], *, retry: bool) -> httpx.Response:
+        """Com `retry`, uma nova tentativa para falhas transitórias (5xx ou rede).
+
+        Com modelo de apoio não há nova tentativa no mesmo modelo: um 503 do Gemini
+        pode levar dezenas de segundos para chegar, e o apoio já é a segunda chance.
+        """
+        for attempt in range(2 if retry else 1):
+            last = attempt == (1 if retry else 0)
             try:
-                response = self.client.post(f"/{self.model}:generateContent", json=body)
+                response = self.client.post(f"/{model}:generateContent", json=body)
             except httpx.TransportError as exc:
-                if attempt == 0:
+                if not last:
                     continue
                 raise AIProviderError("Não foi possível conectar ao provedor de IA.") from exc
-            if response.status_code >= 500 and attempt == 0:
+            if response.status_code >= 500 and not last:
                 time.sleep(0.5)
                 continue
             if response.status_code == 429:
@@ -444,7 +530,11 @@ def _build_provider(name: str, settings: Settings, *, model: str | None) -> LLMP
         if not api_key:
             logger.warning("Provedor gemini sem AI_API_KEY; ignorado")
             return None
-        return GeminiProvider(api_key=api_key, model=model or DEFAULT_GEMINI_MODEL)
+        return GeminiProvider(
+            api_key=api_key,
+            model=model or DEFAULT_GEMINI_MODEL,
+            backup_model=GEMINI_BACKUP_MODEL,
+        )
     if name == "ollama":
         return OllamaProvider(
             base_url=settings.OLLAMA_URL, model=settings.OLLAMA_MODEL or DEFAULT_OLLAMA_MODEL
